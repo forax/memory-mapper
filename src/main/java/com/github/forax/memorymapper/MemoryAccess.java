@@ -5,7 +5,6 @@ import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
-import java.util.Iterator;
 import java.util.List;
 import java.util.RandomAccess;
 import java.util.stream.Stream;
