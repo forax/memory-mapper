@@ -15,7 +15,6 @@ import java.lang.invoke.MutableCallSite;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.RecordComponent;
 import java.nio.ByteOrder;
-import java.nio.MappedByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -279,7 +278,7 @@ public final class MemoryAccessFactory {
     }
   }
 
-  private static MethodHandle reader(Lookup lookup, Class<?> recordType, StructLayout layout, long base) {
+  private static MethodHandle getter(Lookup lookup, Class<?> recordType, StructLayout layout, long base) {
     var components = recordType.getRecordComponents();
     var memberLayouts = layout.memberLayouts();
     var accessors = new ArrayList<MethodHandle>(memberLayouts.size());
@@ -293,7 +292,7 @@ public final class MemoryAccessFactory {
           throw new UnsupportedOperationException("invalid member layout " + memberLayout);
         case StructLayout structLayout : {
           var offset = layout.byteOffset(PathElement.groupElement(i));
-          mh = reader(lookup, components[accessors.size()].getType(), structLayout, offset);
+          mh = getter(lookup, components[accessors.size()].getType(), structLayout, offset);
           break;
         }
         case ValueLayout _: {
@@ -319,7 +318,7 @@ public final class MemoryAccessFactory {
     }
   }
 
-  private static MethodHandle writer(Lookup lookup, Class<?> recordType, StructLayout layout, long base) {
+  private static MethodHandle setter(Lookup lookup, Class<?> recordType, StructLayout layout, long base) {
     var components = recordType.getRecordComponents();
     var memberLayouts = layout.memberLayouts();
     var result = empty(methodType(void.class, MemorySegment.class, recordType));
@@ -334,7 +333,7 @@ public final class MemoryAccessFactory {
           throw new UnsupportedOperationException("invalid member layout " + memberLayout);
         case StructLayout structLayout : {
           var offset = layout.byteOffset(PathElement.groupElement(i));
-          mh = writer(lookup, components[index].getType(), structLayout, offset);
+          mh = setter(lookup, components[index].getType(), structLayout, offset);
           break;
         }
         case ValueLayout _: {
@@ -352,17 +351,17 @@ public final class MemoryAccessFactory {
   }
 
   private static final class Lazy extends MutableCallSite {
-    private static final MethodHandle INIT_READER, INIT_WRITER;
-    private static final MethodType INIT_READER_TYPE, INIT_WRITER_TYPE;
+    private static final MethodHandle INIT_GETTER, INIT_SETTER;
+    private static final MethodType INIT_GETTER_TYPE, INIT_SETTER_TYPE;
     static {
       var lookup = lookup();
       try {
         var initReaderType = methodType(Object.class, MemorySegment.class);
-        INIT_READER_TYPE = initReaderType;
-        INIT_READER = lookup.findVirtual(Lazy.class, "initReader", initReaderType);
+        INIT_GETTER_TYPE = initReaderType;
+        INIT_GETTER = lookup.findVirtual(Lazy.class, "initGetter", initReaderType);
         var initWriterType = methodType(void.class, MemorySegment.class, Object.class);
-        INIT_WRITER_TYPE = initWriterType;
-        INIT_WRITER = lookup.findVirtual(Lazy.class, "initWriter", initWriterType);
+        INIT_SETTER_TYPE = initWriterType;
+        INIT_SETTER = lookup.findVirtual(Lazy.class, "initSetter", initWriterType);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new AssertionError(e);
       }
@@ -380,31 +379,31 @@ public final class MemoryAccessFactory {
       setTarget(init.bindTo(this));
     }
 
-    private Object initReader(MemorySegment memorySegment) throws Throwable {
+    private Object initGetter(MemorySegment memorySegment) throws Throwable {
       if (!(layout instanceof StructLayout structLayout)) {
         throw new UnsupportedOperationException("the layout is not a struct");
       }
-      var target = reader(lookup, recordType, structLayout, 0L).asType(type());
+      var target = getter(lookup, recordType, structLayout, 0L).asType(type());
       setTarget(target);
       return target.invokeExact(memorySegment);
     }
 
-    private void initWriter(MemorySegment memorySegment, Object record) throws Throwable {
+    private void initSetter(MemorySegment memorySegment, Object record) throws Throwable {
       if (!(layout instanceof StructLayout structLayout)) {
         throw new UnsupportedOperationException("the layout is not a struct");
       }
-      var target = writer(lookup, recordType, structLayout, 0L).asType(type());
+      var target = setter(lookup, recordType, structLayout, 0L).asType(type());
       setTarget(target);
       target.invokeExact(memorySegment, record);
     }
   }
 
-  private static MethodHandle lazyReader(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
-    return new Lazy(lookup, recordType, layout, Lazy.INIT_READER, Lazy.INIT_READER_TYPE).dynamicInvoker();
+  private static MethodHandle lazyGetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
+    return new Lazy(lookup, recordType, layout, Lazy.INIT_GETTER, Lazy.INIT_GETTER_TYPE).dynamicInvoker();
   }
 
-  private static MethodHandle lazyWriter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
-    return new Lazy(lookup, recordType, layout, Lazy.INIT_WRITER, Lazy.INIT_WRITER_TYPE).dynamicInvoker();
+  private static MethodHandle lazySetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
+    return new Lazy(lookup, recordType, layout, Lazy.INIT_SETTER, Lazy.INIT_SETTER_TYPE).dynamicInvoker();
   }
 
   final static class MappingSpliterator<T> implements Spliterator<T> {
@@ -451,8 +450,8 @@ public final class MemoryAccessFactory {
   record MemoryAccessImpl<T>(MemoryLayout layout,
                              MethodHandle offsetMH,
                              MethodHandle varHandleMH,
-                             MethodHandle readMH,
-                             MethodHandle writeMH)
+                             MethodHandle getterMH,
+                             MethodHandle setterMH)
       implements MemoryAccess<T> {
 
     @SuppressWarnings("unchecked")
@@ -485,7 +484,7 @@ public final class MemoryAccessFactory {
     public T get(MemorySegment segment) {
       requireNonNull(segment, "segment is null");
       try {
-        return (T) readMH.invokeExact(segment);
+        return (T) getterMH.invokeExact(segment);
       } catch (Throwable e) {
         throw rethrow(e);
       }
@@ -496,7 +495,7 @@ public final class MemoryAccessFactory {
       requireNonNull(segment, "segment is null");
       requireNonNull(element, "element is null");
       try {
-        writeMH.invokeExact(segment, element);
+        setterMH.invokeExact(segment, element);
       } catch (Throwable e) {
         throw rethrow(e);
       }
@@ -517,8 +516,8 @@ public final class MemoryAccessFactory {
     var layout = requireNonNull(layoutFunction.apply(recordType), "layoutFunction return value is null");
     var offsetMH = cache(long.class, path -> offset(layout, path, pathFunction));
     var varHandleMH = cache(VarHandle.class, path -> varHandle(layout, path, pathFunction));
-    var readMH = lazyReader(lookup, recordType, layout);
-    var writeMH = lazyWriter(lookup, recordType, layout);
-    return new MemoryAccessImpl<>(layout, offsetMH, varHandleMH, readMH, writeMH);
+    var getterMH = lazyGetter(lookup, recordType, layout);
+    var setterMH = lazySetter(lookup, recordType, layout);
+    return new MemoryAccessImpl<>(layout, offsetMH, varHandleMH, getterMH, setterMH);
   }
 }
