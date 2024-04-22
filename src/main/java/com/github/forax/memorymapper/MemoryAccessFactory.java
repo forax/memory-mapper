@@ -10,10 +10,12 @@ import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.RecordComponent;
 import java.nio.ByteOrder;
+import java.nio.MappedByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -131,7 +133,7 @@ public final class MemoryAccessFactory {
       byteUsed += isStruct ? element.byteSize() : 0;
     }
 
-    // add last alignment so the layout can be used as an array element
+    // add last padding so the layout can be used as an array element
     if (autoPadding & topLevel) {
       var shift = byteUsed % maxAlignment;
       if (shift != 0) {
@@ -351,13 +353,16 @@ public final class MemoryAccessFactory {
 
   private static final class Lazy extends MutableCallSite {
     private static final MethodHandle INIT_READER, INIT_WRITER;
+    private static final MethodType INIT_READER_TYPE, INIT_WRITER_TYPE;
     static {
       var lookup = lookup();
       try {
-        INIT_READER = lookup.findVirtual(Lazy.class, "initReader",
-            methodType(Object.class, MemorySegment.class));
-        INIT_WRITER = lookup.findVirtual(Lazy.class, "initWriter",
-            methodType(void.class, MemorySegment.class, Object.class));
+        var initReaderType = methodType(Object.class, MemorySegment.class);
+        INIT_READER_TYPE = initReaderType;
+        INIT_READER = lookup.findVirtual(Lazy.class, "initReader", initReaderType);
+        var initWriterType = methodType(void.class, MemorySegment.class, Object.class);
+        INIT_WRITER_TYPE = initWriterType;
+        INIT_WRITER = lookup.findVirtual(Lazy.class, "initWriter", initWriterType);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new AssertionError(e);
       }
@@ -367,8 +372,8 @@ public final class MemoryAccessFactory {
     private final Class<?> recordType;
     private final MemoryLayout layout;
 
-    public Lazy(Lookup lookup, Class<?> recordType, MemoryLayout layout, MethodHandle init) {
-      super(init.type().dropParameterTypes(0, 1));
+    Lazy(Lookup lookup, Class<?> recordType, MemoryLayout layout, MethodHandle init, MethodType type) {
+      super(type);
       this.lookup = lookup;
       this.recordType = recordType;
       this.layout = layout;
@@ -395,11 +400,11 @@ public final class MemoryAccessFactory {
   }
 
   private static MethodHandle lazyReader(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
-    return new Lazy(lookup, recordType, layout, Lazy.INIT_READER).dynamicInvoker();
+    return new Lazy(lookup, recordType, layout, Lazy.INIT_READER, Lazy.INIT_READER_TYPE).dynamicInvoker();
   }
 
   private static MethodHandle lazyWriter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
-    return new Lazy(lookup, recordType, layout, Lazy.INIT_WRITER).dynamicInvoker();
+    return new Lazy(lookup, recordType, layout, Lazy.INIT_WRITER, Lazy.INIT_WRITER_TYPE).dynamicInvoker();
   }
 
   final static class MappingSpliterator<T> implements Spliterator<T> {
@@ -413,7 +418,8 @@ public final class MemoryAccessFactory {
 
     @Override
     public boolean tryAdvance(Consumer<? super T> action) {
-      return spliterator.tryAdvance(memoryAccess::get);
+      requireNonNull(action, "action is null");
+      return spliterator.tryAdvance(segment -> action.accept(memoryAccess.get(segment)));
     }
 
     @Override
@@ -432,7 +438,13 @@ public final class MemoryAccessFactory {
 
     @Override
     public int characteristics() {
-      return spliterator.characteristics() | NONNULL;
+      return spliterator.characteristics();
+    }
+
+    @Override
+    public void forEachRemaining(Consumer<? super T> action) {
+      requireNonNull(action, "action is null");
+      spliterator.forEachRemaining(segment -> action.accept(memoryAccess.get(segment)));
     }
   }
 
