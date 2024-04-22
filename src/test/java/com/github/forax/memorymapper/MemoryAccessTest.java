@@ -242,7 +242,7 @@ public class MemoryAccessTest {
     @Test
     public void noAutoPadding() {
       @Layout(autoPadding = false)
-      record Foo(short s, @LayoutElement(byteAlignment = 1) int i) {}
+      record Foo(short s, @LayoutElement(alignment = 1) int i) {}
 
       var access = MemoryAccess.reflect(lookup(), Foo.class);
       assertEquals(access.layout(), MemoryLayout.structLayout(
@@ -276,7 +276,7 @@ public class MemoryAccessTest {
 
     @Test
     public void elementByteOrderLittleEndian() {
-      record Foo(@LayoutElement(byteOrder = LayoutElement.ByteOrder.LITTLE_ENDIAN) int value) {}
+      record Foo(@LayoutElement(order = LayoutElement.ByteOrder.LITTLE_ENDIAN) int value) {}
 
       var access = MemoryAccess.reflect(lookup(), Foo.class);
       assertEquals(access.layout(), MemoryLayout.structLayout(
@@ -286,7 +286,7 @@ public class MemoryAccessTest {
 
     @Test
     public void elementByteOrderBigEndian() {
-      record Foo(@LayoutElement(byteOrder = LayoutElement.ByteOrder.BIG_ENDIAN) int value) {}
+      record Foo(@LayoutElement(order = LayoutElement.ByteOrder.BIG_ENDIAN) int value) {}
 
       var access = MemoryAccess.reflect(lookup(), Foo.class);
       assertEquals(access.layout(), MemoryLayout.structLayout(
@@ -296,12 +296,25 @@ public class MemoryAccessTest {
 
     @Test
     public void elementByteAlignment() {
-      record Foo(byte b, @LayoutElement(byteAlignment = 1) int i) {}
+      record Foo(byte b, @LayoutElement(alignment = 1) int i) {}
 
       var access = MemoryAccess.reflect(lookup(), Foo.class);
       assertAll(
           () -> assertEquals(0, access.byteOffset(".b")),
           () -> assertEquals(1, access.byteOffset(".i"))
+      );
+    }
+
+    @Test
+    public void layoutEndPadding() {
+      @Layout(autoPadding = false, endPadding = 3)
+      record Foo(int i, byte b) {}
+
+      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      assertAll(
+          () -> assertEquals(8, access.layout().byteSize()),
+          () -> assertEquals(0, access.byteOffset(".i")),
+          () -> assertEquals(4, access.byteOffset(".b"))
       );
     }
   }

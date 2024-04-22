@@ -14,8 +14,8 @@ import static com.github.forax.memorymapper.MemoryAccessFactory.AnnotationDefaul
 public @interface LayoutElement {
   enum ByteOrder { LITTLE_ENDIAN, BIG_ENDIAN, NATIVE }
 
-  ByteOrder byteOrder() default ByteOrder.NATIVE;
-  long byteAlignment() default DEFAULT_ALIGNMENT;
+  ByteOrder order() default ByteOrder.NATIVE;
+  long alignment() default DEFAULT_ALIGNMENT;
   long padding() default DEFAULT_PADDING;
   String name() default DEFAULT_NAME;
 }

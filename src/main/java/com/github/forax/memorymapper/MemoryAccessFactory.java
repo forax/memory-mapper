@@ -70,10 +70,10 @@ public final class MemoryAccessFactory {
   }
 
   private static MemoryLayout withByteAlignment(MemoryLayout element, LayoutElement layoutElement) {
-    if (layoutElement.byteAlignment() == DEFAULT_ALIGNMENT) {
+    if (layoutElement.alignment() == DEFAULT_ALIGNMENT) {
       return element;
     }
-    return element.withByteAlignment(layoutElement.byteAlignment());
+    return element.withByteAlignment(layoutElement.alignment());
   }
 
   private static MemoryLayout withName(MemoryLayout element, LayoutElement layoutElement, RecordComponent component) {
@@ -82,13 +82,13 @@ public final class MemoryAccessFactory {
   }
 
   private static MemoryLayout withOrder(MemoryLayout element, LayoutElement layoutElement) {
-    if (layoutElement.byteOrder() == LayoutElement.ByteOrder.NATIVE) {
+    if (layoutElement.order() == LayoutElement.ByteOrder.NATIVE) {
       return element;
     }
     if (!(element instanceof ValueLayout valueLayout)) {
       throw new IllegalStateException("byte order can only be defined on primitive type");
     }
-    return valueLayout.withOrder(switch (layoutElement.byteOrder()) {
+    return valueLayout.withOrder(switch (layoutElement.order()) {
       case BIG_ENDIAN -> ByteOrder.BIG_ENDIAN;
       case LITTLE_ENDIAN -> ByteOrder.LITTLE_ENDIAN;
       case NATIVE -> throw new AssertionError();
@@ -132,13 +132,14 @@ public final class MemoryAccessFactory {
       byteUsed += isStruct ? element.byteSize() : 0;
     }
 
-    // add last padding so the layout can be used as an array element
-    if (autoPadding & topLevel) {
+    // add end padding so the layout can be used as an array element
+    long padding = layout.endPadding();
+    if (padding == DEFAULT_PADDING & autoPadding & topLevel) {
       var shift = byteUsed % maxAlignment;
-      if (shift != 0) {
-        var padding = maxAlignment - shift;
-        memberLayouts.add(MemoryLayout.paddingLayout(padding));
-      }
+      padding = shift != 0 ? maxAlignment - shift : DEFAULT_PADDING;
+    }
+    if (padding != DEFAULT_PADDING) {
+      memberLayouts.add(MemoryLayout.paddingLayout(padding));
     }
 
     var layoutArray = memberLayouts.toArray(MemoryLayout[]::new);
@@ -499,6 +500,20 @@ public final class MemoryAccessFactory {
       } catch (Throwable e) {
         throw rethrow(e);
       }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      return this == obj;
+    }
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(this);
+    }
+
+    @Override
+    public String toString() {
+      return layout.toString();
     }
   }
 
