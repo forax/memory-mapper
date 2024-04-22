@@ -195,11 +195,17 @@ public class MemoryAccessTest {
 
     @Test
     public void varHandleSharing() {
-      record Foo(int value) {
-      }
+      record Foo(int value) {}
 
       var access = MemoryAccess.reflect(lookup(), Foo.class);
       assertSame(access.vh(".value"), access.vh(".value"));
+    }
+
+    @Test
+    public void varHandleFailIfPathIsNotAnInternedString() {
+      record Foo(int value) {}
+      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      assertThrows(IllegalArgumentException.class, () -> access.vh(new String(".value")));
     }
   }
 
@@ -316,6 +322,14 @@ public class MemoryAccessTest {
           () -> assertEquals(0, access.byteOffset(".i")),
           () -> assertEquals(4, access.byteOffset(".b"))
       );
+    }
+
+    @Test
+    public void byteOffsetFailIfPathIsNotAnInternedString() {
+      record Foo(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      assertThrows(IllegalArgumentException.class, () -> access.byteOffset(new String(".value")));
     }
   }
 
@@ -576,6 +590,22 @@ public class MemoryAccessTest {
 
         var points = access.stream(segment);
         assertTrue(points.allMatch(p -> p.x == 42));
+      }
+    }
+
+    @Test
+    public void streamOfValues() {
+      record Value(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = access.newArray(arena, 1_000);
+        for(var i = 0L; i < 1_000L; i++) {
+          access.vh("[].value").set(segment, 0L, i, 42);
+        }
+
+        var values = access.stream(segment);
+        assertEquals(42_000, values.mapToInt(Value::value).sum());
       }
     }
 

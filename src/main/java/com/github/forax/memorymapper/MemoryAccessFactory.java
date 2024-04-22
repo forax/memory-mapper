@@ -23,9 +23,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
-import static com.github.forax.memorymapper.MemoryAccessFactory.AnnotationDefault.DEFAULT_ALIGNMENT;
-import static com.github.forax.memorymapper.MemoryAccessFactory.AnnotationDefault.DEFAULT_NAME;
-import static com.github.forax.memorymapper.MemoryAccessFactory.AnnotationDefault.DEFAULT_PADDING;
 import static java.lang.foreign.ValueLayout.JAVA_BOOLEAN;
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 import static java.lang.foreign.ValueLayout.JAVA_CHAR;
@@ -47,26 +44,31 @@ import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A factory to create fined tuned memory access.
+ *
+ * @see #create(Lookup, Class, Function, Function)
+ */
 public final class MemoryAccessFactory {
-  @Layout
-  record AnnotationDefault(@LayoutElement Void element) {
-    static final long DEFAULT_ALIGNMENT = -1;
-    static final long DEFAULT_PADDING = -1;
-    static final String DEFAULT_NAME = "";
+  static final long DEFAULT_ALIGNMENT = -1;
+  static final long DEFAULT_PADDING = -1;
+  static final String DEFAULT_NAME = "";
 
+  @Layout
+  private record AnnotationDefault(@LayoutElement Void element) {
     private static final Layout LAYOUT = AnnotationDefault.class.getAnnotation(Layout.class);
     private static final LayoutElement LAYOUT_ELEMENT =
         AnnotationDefault.class.getRecordComponents()[0].getAnnotation(LayoutElement.class);
+  }
 
-    static Layout layout(Class<?> recordType) {
-      var layout = recordType.getAnnotation(Layout.class);
-      return layout == null ? LAYOUT : layout;
-    }
+  static Layout layoutAnnotation(Class<?> recordType) {
+    var layout = recordType.getAnnotation(Layout.class);
+    return layout == null ? AnnotationDefault.LAYOUT : layout;
+  }
 
-    static LayoutElement layoutElement(RecordComponent recordComponent) {
-      var layoutElement = recordComponent.getAnnotation(LayoutElement.class);
-      return layoutElement == null ? LAYOUT_ELEMENT : layoutElement;
-    }
+  static LayoutElement layoutElementAnnotation(RecordComponent recordComponent) {
+    var layoutElement = recordComponent.getAnnotation(LayoutElement.class);
+    return layoutElement == null ? AnnotationDefault.LAYOUT_ELEMENT : layoutElement;
   }
 
   private static MemoryLayout withByteAlignment(MemoryLayout element, LayoutElement layoutElement) {
@@ -96,14 +98,14 @@ public final class MemoryAccessFactory {
   }
 
   private static MemoryLayout record(Class<?> recordType, long byteUsed, boolean topLevel) {
-    var layout = AnnotationDefault.layout(recordType);
+    var layout = layoutAnnotation(recordType);
     var isStruct = layout.kind() == Layout.Kind.STRUCT;
     var autoPadding = layout.autoPadding() & isStruct;
     var components = recordType.getRecordComponents();
     var maxAlignment = 1L;
     var memberLayouts = new ArrayList<MemoryLayout>();
     for (var component : components) {
-      var layoutElement = AnnotationDefault.layoutElement(component);
+      var layoutElement = layoutElementAnnotation(component);
       var element = element(component.getType(), byteUsed);
 
       // byte alignment
@@ -169,6 +171,14 @@ public final class MemoryAccessFactory {
     throw new IllegalStateException("invalid type " + type.getName());
   }
 
+  /**
+   * Returns a memory layout from the description of a record.
+   * @param type the record type.
+   * @return a memory layout from the description of a record.
+   *
+   * @see Layout
+   * @see LayoutElement
+   */
   public static MemoryLayout defaultLayout(Class<?> type) {
     requireNonNull(type, "type is null");
     if (!type.isRecord()) {
@@ -177,9 +187,24 @@ public final class MemoryAccessFactory {
     return record(type, 0,true);
   }
 
+  /**
+   * Represent a path into the memory layout.
+   */
   public sealed interface Path {
+    /**
+     * An array access, represented by default by the string {@code []}.
+     */
     record ArrayPath() implements Path {}
-    record FieldPath(String field) implements Path {}
+
+    /**
+     * A member access, represented by default by the string {@code .member}.
+     * @param member the name of the member in the memory layout.
+     */
+    record FieldPath(String member) implements Path {
+      public FieldPath {
+        requireNonNull(member);
+      }
+    }
   }
 
   static PathElement toPathElement(Path path) {
@@ -191,6 +216,11 @@ public final class MemoryAccessFactory {
 
   private static final Pattern PATH_PATTERN = Pattern.compile("\\.(\\w+)|\\[\\]");
 
+  /**
+   * Create a path from a string description.
+   * @param path a string path.
+   * @return a Path object corresponding to the string description.
+   */
   public static List<Path> defaultPath(String path) {
     requireNonNull(path, "path is null");
     var matcher = PATH_PATTERN.matcher(path);
@@ -248,9 +278,15 @@ public final class MemoryAccessFactory {
       setTarget(FALLBACK.asType(FALLBACK.type().changeReturnType(constantType)).bindTo(this));
     }
 
-    private Object fallback(String path) {
-      var constantValue = computeFunction.apply(path);
+    private static void checkInterned(String path) {
+      if (path != path.intern()) {
+        throw new IllegalArgumentException("path is not an interned string");
+      }
+    }
 
+    private Object fallback(String path) {
+      checkInterned(path);
+      var constantValue = computeFunction.apply(path);
       var constantType = type().returnType();
       var guard = guardWithTest(
           TEST.bindTo(path),
@@ -517,10 +553,28 @@ public final class MemoryAccessFactory {
     }
   }
 
+  /**
+   * Create a memory access object using the record type as definition.
+   * <p>
+   * This method should only be used if you want to configure how the layout is created
+   * or change the syntax of the path. Otherwise, the method {@link MemoryAccess#reflect(Lookup, Class)}
+   * should be used instead.
+   *
+   * @param lookup an access checking object.
+   * @param recordType a type of record.
+   * @param layoutFunction a function that creates a memory layout from a class.
+   * @param pathFunction a function that creates a path from a string.
+   * @return a new memory access.
+   * @throws IllegalArgumentException if the record type is not a record.
+   * @param <T> the type of the record.
+   *
+   * @see #defaultLayout(Class)
+   * @see #defaultPath(String)
+   */
   public static <T extends Record> MemoryAccess<T> create(Lookup lookup,
-                                                   Class<T> recordType,
-                                                   Function<? super Class<?>, ? extends MemoryLayout> layoutFunction,
-                                                   Function<? super String, ? extends List<? extends Path>> pathFunction) {
+                                              Class<T> recordType,
+                                              Function<? super Class<?>, ? extends MemoryLayout> layoutFunction,
+                                              Function<? super String, ? extends List<? extends Path>> pathFunction) {
     requireNonNull(lookup, "lookup is null");
     requireNonNull(recordType, "recordType is null");
     requireNonNull(pathFunction, "layoutFunction is null");

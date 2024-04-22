@@ -53,17 +53,6 @@ public class ExampleTest {
     }
 
     @Test
-    public void newArrayAndFill() {
-      try(var arena = Arena.ofConfined()) {
-        var points = POINT.newArray(arena, 10);
-        POINT.fill(points, 10, new Point(2, 3));
-        for(var i = 0; i < 10; i++) {
-          assertEquals(new Point(2, 3), POINT.getAtIndex(points, i));
-        }
-      }
-    }
-
-    @Test
     public void newArrayIndexedGetAndSet() {
       try(var arena = Arena.ofConfined()) {
         var points = POINT.newArray(arena, 10);
