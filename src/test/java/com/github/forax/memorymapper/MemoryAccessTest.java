@@ -7,7 +7,6 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteOrder;
-import java.util.stream.IntStream;
 
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.junit.jupiter.api.Assertions.*;
@@ -308,9 +307,9 @@ public class MemoryAccessTest {
   }
 
   @Nested
-  public class MappingRead {
+  public class MappingGet {
     @Test
-    public void readStructPoint() {
+    public void getStructPoint() {
       record Point(int x, int y) {}
 
       var access = MemoryAccess.reflect(lookup(), Point.class);
@@ -318,13 +317,13 @@ public class MemoryAccessTest {
         var segment = access.newValue(arena);
         access.vh(".x").set(segment, 0L, 42);
 
-        var point = access.read(segment);
+        var point = access.get(segment);
         assertEquals(new Point(42, 0), point);
       }
     }
 
     @Test
-    public void readStructOfStruct() {
+    public void getStructOfStruct() {
       record Coordinate(int value) {}
       record Point(Coordinate x, Coordinate y) {}
 
@@ -333,13 +332,13 @@ public class MemoryAccessTest {
         var segment = access.newValue(arena);
         access.vh(".x.value").set(segment, 0L, 42);
 
-        var point = access.read(segment);
+        var point = access.get(segment);
         assertEquals(new Point(new Coordinate(42), new Coordinate(0)), point);
       }
     }
 
     @Test
-    public void readUnionNotSupported() {
+    public void getUnionNotSupported() {
       @Layout(kind = Layout.Kind.UNION)
       record Bad(int value) {}
 
@@ -347,12 +346,12 @@ public class MemoryAccessTest {
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
-        assertThrows(UnsupportedOperationException.class, () -> access.read(segment));
+        assertThrows(UnsupportedOperationException.class, () -> access.get(segment));
       }
     }
 
     @Test
-    public void readMemberUnionNotSupported() {
+    public void getMemberUnionNotSupported() {
       @Layout(kind = Layout.Kind.UNION)
       record Union(int value) {}
       record Bad(Union union) {}
@@ -361,10 +360,196 @@ public class MemoryAccessTest {
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
-        assertThrows(UnsupportedOperationException.class, () -> access.read(segment));
+        assertThrows(UnsupportedOperationException.class, () -> access.get(segment));
       }
     }
 
+    @Test
+    public void getWrongAlignment() {
+      record Value(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(5);
+        var shiftedSegment = segment.asSlice(1L);
+        assertThrows(IllegalArgumentException.class, () -> access.get(shiftedSegment));
+      }
+    }
+  }
+
+  @Nested
+  public class MappingGetAt {
+    @Test
+    public void getAtIndexStructPoint() {
+      record Point(int x, int y) {}
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = access.newArray(arena, 10);
+        access.vh("[].x").set(segment, 0L, 3L, 42);
+
+        var point = access.getAtIndex(segment, 3L);
+        assertEquals(new Point(42, 0), point);
+      }
+    }
+
+    @Test
+    public void getAtIndexStructOfStruct() {
+      record Coordinate(int value) {}
+      record Point(Coordinate x, Coordinate y) {}
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = access.newArray(arena, 10);
+        access.vh("[].x.value").set(segment, 0L, 7L, 42);
+
+        var point = access.getAtIndex(segment, 7L);
+        assertEquals(new Point(new Coordinate(42), new Coordinate(0)), point);
+      }
+    }
+
+    @Test
+    public void getAtIndexWrongAlignment() {
+      record Value(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(10);
+        var shiftedSegment = segment.asSlice(1L);
+        assertThrows(IllegalArgumentException.class, () -> access.getAtIndex(shiftedSegment, 1L));
+      }
+    }
+  }
+
+  @Nested
+  public class MappingSet {
+    @Test
+    public void setStructPoint() {
+      record Point(int x, int y) {}
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = access.newValue(arena);
+
+        access.set(segment, new Point(42, 17));
+
+        assertAll(
+            () -> assertEquals(42, (int) access.vh(".x").get(segment, 0L)),
+            () -> assertEquals(17, (int) access.vh(".y").get(segment, 0L))
+        );
+      }
+    }
+
+    @Test
+    public void setStructOfStruct() {
+      record Coordinate(int value) {}
+      record Point(Coordinate x, Coordinate y) {}
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = access.newValue(arena);
+        access.set(segment, new Point(new Coordinate(-5), new Coordinate(13)));
+
+        assertAll(
+            () -> assertEquals(-5, (int) access.vh(".x.value").get(segment, 0L)),
+            () -> assertEquals(13, (int) access.vh(".y.value").get(segment, 0L))
+        );
+      }
+    }
+
+    @Test
+    public void setUnionNotSupported() {
+      @Layout(kind = Layout.Kind.UNION)
+      record Bad(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Bad.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = access.newValue(arena);
+
+        assertThrows(UnsupportedOperationException.class, () -> access.set(segment, new Bad(3)));
+      }
+    }
+
+    @Test
+    public void setMemberUnionNotSupported() {
+      @Layout(kind = Layout.Kind.UNION)
+      record Union(int value) {}
+      record Bad(Union union) {}
+
+      var access = MemoryAccess.reflect(lookup(), Bad.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = access.newValue(arena);
+
+        assertThrows(UnsupportedOperationException.class, () -> access.set(segment, new Bad(new Union(3))));
+      }
+    }
+
+    @Test
+    public void setWrongAlignment() {
+      record Value(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try(var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(5);
+        var shiftedSegment = segment.asSlice(1L);
+        assertThrows(IllegalArgumentException.class, () -> access.set(shiftedSegment, new Value(42)));
+      }
+    }
+  }
+
+  @Nested
+  public class MappingSetAt {
+    @Test
+    public void setAtIndexStructPoint() {
+      record Point(int x, int y) {
+      }
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = access.newArray(arena, 10);
+        access.setAtIndex(segment, 3, new Point(42, 17));
+
+        assertAll(
+            () -> assertEquals(42, (int) access.vh("[].x").get(segment, 0L, 3L)),
+            () -> assertEquals(17, (int) access.vh("[].y").get(segment, 0L, 3L))
+        );
+      }
+    }
+
+    @Test
+    public void setAtIndexStructOfStruct() {
+      record Coordinate(int value) {
+      }
+      record Point(Coordinate x, Coordinate y) {
+      }
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = access.newArray(arena, 10);
+        access.setAtIndex(segment, 7, new Point(new Coordinate(-5), new Coordinate(13)));
+
+        assertAll(
+            () -> assertEquals(-5, (int) access.vh("[].x.value").get(segment, 0L, 7L)),
+            () -> assertEquals(13, (int) access.vh("[].y.value").get(segment, 0L, 7L))
+        );
+      }
+    }
+
+    @Test
+    public void setAtIndexWrongAlignment() {
+      record Value(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(10);
+        var shiftedSegment = segment.asSlice(1L);
+        assertThrows(IllegalArgumentException.class, () -> access.setAtIndex(shiftedSegment, 1, new Value(42)));
+      }
+    }
+  }
+
+  @Nested
+  public class MappingStream {
     @Test
     public void streamOfPoints() {
       record Point(int x, int y) {}
@@ -380,84 +565,56 @@ public class MemoryAccessTest {
         assertTrue(points.allMatch(p -> p.x == 42));
       }
     }
+
+    @Test
+    public void streamWrongAlignment() {
+      record Value(int value) {}
+
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(10);
+        var shiftedSegment = segment.asSlice(1L);
+        assertThrows(IllegalArgumentException.class, () -> access.stream(shiftedSegment));
+      }
+    }
   }
 
   @Nested
-  public class MappingWrite {
+  public class MappingList {
     @Test
-    public void writeStructPoint() {
+    public void listOfPointsGet() {
+      record Point(int x, int y) {
+      }
+
+      var access = MemoryAccess.reflect(lookup(), Point.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = access.newArray(arena, 1_000);
+        for (var i = 0L; i < 1_000L; i++) {
+          access.vh("[].x").set(segment, 0L, i, (int) i);
+          access.vh("[].y").set(segment, 0L, i, (int) -i);
+        }
+
+        var points = access.list(segment);
+        for (var i = 0; i < 1_000; i++) {
+          assertEquals(i, points.get(i).x);
+          assertEquals(-i, points.get(i).y);
+        }
+      }
+    }
+
+    @Test
+    public void listOfPointsSet() {
       record Point(int x, int y) {}
 
       var access = MemoryAccess.reflect(lookup(), Point.class);
       try (var arena = Arena.ofConfined()) {
-        var segment = access.newValue(arena);
-
-        access.write(segment, new Point(42, 17));
-
-        assertAll(
-            () -> assertEquals(42, (int) access.vh(".x").get(segment, 0L)),
-            () -> assertEquals(17, (int) access.vh(".y").get(segment, 0L))
-        );
-      }
-    }
-
-    @Test
-    public void writeStructOfStruct() {
-      record Coordinate(int value) {}
-      record Point(Coordinate x, Coordinate y) {}
-
-      var access = MemoryAccess.reflect(lookup(), Point.class);
-      try(var arena = Arena.ofConfined()) {
-        var segment = access.newValue(arena);
-        access.write(segment, new Point(new Coordinate(-5), new Coordinate(13)));
-
-        assertAll(
-            () -> assertEquals(-5, (int) access.vh(".x.value").get(segment, 0L)),
-            () -> assertEquals(13, (int) access.vh(".y.value").get(segment, 0L))
-        );
-      }
-    }
-
-    @Test
-    public void writeUnionNotSupported() {
-      @Layout(kind = Layout.Kind.UNION)
-      record Bad(int value) {}
-
-      var access = MemoryAccess.reflect(lookup(), Bad.class);
-      try(var arena = Arena.ofConfined()) {
-        var segment = access.newValue(arena);
-
-        assertThrows(UnsupportedOperationException.class, () -> access.write(segment, new Bad(3)));
-      }
-    }
-
-    @Test
-    public void writeMemberUnionNotSupported() {
-      @Layout(kind = Layout.Kind.UNION)
-      record Union(int value) {}
-      record Bad(Union union) {}
-
-      var access = MemoryAccess.reflect(lookup(), Bad.class);
-      try(var arena = Arena.ofConfined()) {
-        var segment = access.newValue(arena);
-
-        assertThrows(UnsupportedOperationException.class, () -> access.write(segment, new Bad(new Union(3))));
-      }
-    }
-
-    @Test
-    public void writeAllIterablePoints() {
-      record Point(int x, int y) {}
-
-      var access = MemoryAccess.reflect(lookup(), Point.class);
-      try(var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 1_000);
-        var points = (Iterable<Point>) IntStream.range(0, 1_000)
-            .mapToObj(i -> new Point(i, i))
-            ::iterator;
-        access.writeAll(segment, points);
+        var points = access.list(segment);
+        for (var i = 0; i < points.size(); i++) {
+          points.set(i, new Point(i, i));
+        }
 
-        for(var i = 0L; i < 1_000L; i++) {
+        for (var i = 0L; i < 1_000L; i++) {
           assertEquals((int) i, (int) access.vh("[].x").get(segment, 0L, i));
           assertEquals((int) i, (int) access.vh("[].y").get(segment, 0L, i));
         }
@@ -465,39 +622,14 @@ public class MemoryAccessTest {
     }
 
     @Test
-    public void writeAllListPoints() {
-      record Point(int x, int y) {}
+    public void listWrongAlignment() {
+      record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
-      try(var arena = Arena.ofConfined()) {
-        var segment = access.newArray(arena, 1_000);
-        var points = IntStream.range(0, 1_000)
-            .mapToObj(i -> new Point(i, i))
-            .toList();
-        access.writeAll(segment, points);
-
-        for(var i = 0L; i < 1_000L; i++) {
-          assertEquals((int) i, (int) access.vh("[].x").get(segment, 0L, i));
-          assertEquals((int) i, (int) access.vh("[].y").get(segment, 0L, i));
-        }
-      }
-    }
-
-    @Test
-    public void writeAllIStreamPoints() {
-      record Point(int x, int y) {}
-
-      var access = MemoryAccess.reflect(lookup(), Point.class);
-      try(var arena = Arena.ofConfined()) {
-        var segment = access.newArray(arena, 1_000);
-        var points = IntStream.range(0, 1_000)
-            .mapToObj(i -> new Point(i, i));
-        access.writeAll(segment, points);
-
-        for(var i = 0L; i < 1_000L; i++) {
-          assertEquals((int) i, (int) access.vh("[].x").get(segment, 0L, i));
-          assertEquals((int) i, (int) access.vh("[].y").get(segment, 0L, i));
-        }
+      var access = MemoryAccess.reflect(lookup(), Value.class);
+      try (var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(10);
+        var shiftedSegment = segment.asSlice(1L);
+        assertThrows(IllegalArgumentException.class, () -> access.list(shiftedSegment));
       }
     }
   }

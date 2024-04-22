@@ -17,6 +17,8 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Spliterator;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -400,6 +402,40 @@ public final class MemoryAccessFactory {
     return new Lazy(lookup, recordType, layout, Lazy.INIT_WRITER).dynamicInvoker();
   }
 
+  final static class MappingSpliterator<T> implements Spliterator<T> {
+    private final MemoryAccess<T> memoryAccess;
+    private final Spliterator<MemorySegment> spliterator;
+
+    MappingSpliterator(MemoryAccess<T> memoryAccess, Spliterator<MemorySegment> spliterator) {
+      this.memoryAccess = memoryAccess;
+      this.spliterator = spliterator;
+    }
+
+    @Override
+    public boolean tryAdvance(Consumer<? super T> action) {
+      return spliterator.tryAdvance(memoryAccess::get);
+    }
+
+    @Override
+    public Spliterator<T> trySplit() {
+      var spliterator2 = spliterator.trySplit();
+      if (spliterator2 == null) {
+        return null;
+      }
+      return new MappingSpliterator<>(memoryAccess, spliterator2);
+    }
+
+    @Override
+    public long estimateSize() {
+      return spliterator.estimateSize();
+    }
+
+    @Override
+    public int characteristics() {
+      return spliterator.characteristics() | NONNULL;
+    }
+  }
+
   record MemoryAccessImpl<T>(MemoryLayout layout,
                              MethodHandle offsetMH,
                              MethodHandle varHandleMH,
@@ -434,7 +470,7 @@ public final class MemoryAccessFactory {
 
     @Override
     @SuppressWarnings("unchecked")
-    public T read(MemorySegment segment) {
+    public T get(MemorySegment segment) {
       requireNonNull(segment, "segment is null");
       try {
         return (T) readMH.invokeExact(segment);
@@ -444,11 +480,11 @@ public final class MemoryAccessFactory {
     }
 
     @Override
-    public void write(MemorySegment segment, T record) {
+    public void set(MemorySegment segment, T element) {
       requireNonNull(segment, "segment is null");
-      requireNonNull(record, "record is null");
+      requireNonNull(element, "element is null");
       try {
-        writeMH.invokeExact(segment, record);
+        writeMH.invokeExact(segment, element);
       } catch (Throwable e) {
         throw rethrow(e);
       }
