@@ -33,7 +33,7 @@ import static java.util.Objects.requireNonNull;
  *     </ul>
  * </ul>
  *
- * Creating a {@Code MemoryAccess} instance ?
+ * Creating a {@Code MemoryAccess} instance?
  * <p>
  * The idea is to declare a record for a struct and create a MemoryAccess instance.
  * A memory layout is derived from the record description with by default all the field correctly aligned
@@ -60,9 +60,9 @@ import static java.util.Objects.requireNonNull;
  * }
  *
  * The annotation {@link LayoutElement} describes the {@link MemoryLayout layout} of each field.
- * The annotation {@link Layout} specify the layout of the data structure.
+ * The annotation {@link Layout} specifies the layout of the data structure.
  * <p>
- * <b>Allocating an instance and accessing fields</b>
+ * <b>Allocating an instance and accessing its fields</b>
  * <p>
  * The method {@link #newValue(Arena)} allocates a memory segment of the size of the layout.
  * The method {@link #vh(String)} returns a constant {@link VarHandle} allowing to get and set the
