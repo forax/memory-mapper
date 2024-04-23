@@ -33,6 +33,107 @@ import static java.util.Objects.requireNonNull;
  *     </ul>
  * </ul>
  *
+ * Creating a {@Code MemoryAccess} instance ?
+ * <p>
+ * The idea is to declare a record for a struct and create a MemoryAccess instance.
+ * A memory layout is derived from the record description with by default all the field correctly aligned
+ * and the byte order of the CPU.
+ * {@snippet :
+ * record Point(int x, int y) {}
+ *
+ * private static final MemoryAccess<Point> POINT = MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *
+ *   System.out.println(POINT.layout());
+ *}
+ *
+ * The record can be decorated with annotations to specify the layout in memory. For example here, the padding
+ * to align the fields is specified explicitly.
+ * {@snippet :
+ * @Layout(autoPadding = false, endPadding = 4)
+ * record City(
+ *   @LayoutElement(name = "city_id")
+ *   int id,
+ *   @LayoutElement(padding = 4)
+ *   long population,
+ *   int yearOfCreation
+ * ) {}
+ * }
+ *
+ * The annotation {@link LayoutElement} describes the {@link MemoryLayout layout} of each field.
+ * The annotation {@link Layout} specify the layout of the data structure.
+ * <p>
+ * <b>Allocating an instance and accessing fields</b>
+ * <p>
+ * The method {@link #newValue(Arena)} allocates a memory segment of the size of the layout.
+ * The method {@link #vh(String)} returns a constant {@link VarHandle} allowing to get and set the
+ * values of the fields from a string path.
+ *
+ * {@snippet :
+ * private static final MemoryAccess<Point> POINT =
+ *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *
+ *   try(Arena arena = Arena.ofConfined()) {
+ *     MemorySegment s = POINT.newValue(arena);
+ *
+ *     POINT.vh(".x").set(s, 0L, 42);            // s.x = 42
+ *     var y = (int) POINT.vh(".y").get(s, 0L);  // s.y
+ *   }
+ * }
+ *
+ * <b>Allocating an array and accessing its element</b>
+ * <p>
+ * The method {@link #newArray(Arena, long)}  allocate an array with a size.
+ * The method {@link #vh(String)} also allows to access to the elements of an array using the prefix "[]".
+ *
+ * {@snippet :
+ * private static final MemoryAccess<Point> POINT =
+ *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *
+ *   try(Arena arena = Arena.ofConfined()) {
+ *     MemorySegment s = POINT.newArray(arena, 10);
+ *
+ *     for(long i = 0L; i < 10L; i++) {
+ *       POINT.vh("[].x").set(s, 0L, i, 42);            // s[i].x = 42
+ *       var y = (int) POINT.vh("[].y").get(s, 0L, i);  // s[i].y
+ *     }
+ *   }
+ * }
+ *
+ * <b>Mapping a segment to record instances</b>
+ * <p>
+ * The method {@link #newValue(Arena, Object)} initialize a memory segment and initialize all the fields from a
+ * record instance.
+ * The methods {@link #getAtIndex(MemorySegment, long)} and {@link #setAtIndex(MemorySegment, long, Object)}
+ * get and set all the fields in bulk from/into a record instance.
+ * {@snippet :
+ *  private static final MemoryAccess<Point> POINT =
+ *      MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *
+ *    try(Arena arena = Arena.ofConfined()) {
+ *      MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1, s.y = 2
+ *      POINT.set(s, new Point(12, 5));  // s.x = 12, s.y = 5
+ *      var p = POINT.get(s);            // p.x = s.x, p.y = s.y
+ *
+ *      MemorySegment s2 = POINT.newArray(arena);
+ *      POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12, s2[3].y = 5
+ *      var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x, p2.y = s2[7].y
+ *    }
+ * }
+ *
+ * and the methods {@link #list(MemorySegment)} and {@link #stream(MemorySegment)} sees an array
+ * respectively as a {@code java.util.List} (limited at 2G elements) and a {@code java.util.stream.Stream}.
+ * {@snippet :
+ * private static final MemoryAccess<Point> POINT =
+ *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *
+ *   try(Arena arena = Arena.ofConfined()) {
+ *     MemorySegment s = POINT.newArray(arena);
+ *     List<Point> l = POINT.list(segment);
+ *     l.set(3, new Point(12, 5));   // s[3].x = 12, s[3].y = 5
+ *     var p = l.get(7);             // p.x = s[7].x, p.y = s[7].y
+ *   }
+ * }
+ *
  * @param <T> type of the record
  */
 public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccessImpl {
