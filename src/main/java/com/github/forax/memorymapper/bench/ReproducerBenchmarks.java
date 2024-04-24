@@ -25,6 +25,11 @@ import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 
+// Benchmark                               Mode  Cnt  Score   Error  Units
+// ReproducerBenchmarks.control            avgt    5  1.250 ± 0.024  ns/op
+// ReproducerBenchmarks.gwt2_methodhandle  avgt    5  1.852 ± 0.024  ns/op
+// ReproducerBenchmarks.gwt_methodhandle   avgt    5  1.259 ± 0.055  ns/op
+
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Fork(value = 1)
