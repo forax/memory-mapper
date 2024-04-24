@@ -1,5 +1,6 @@
 package com.github.forax.memorymapper;
 
+import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.PaddingLayout;
@@ -15,13 +16,17 @@ import java.lang.invoke.MutableCallSite;
 import java.lang.invoke.VarHandle;
 import java.lang.reflect.RecordComponent;
 import java.nio.ByteOrder;
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.RandomAccess;
 import java.util.Spliterator;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static java.lang.foreign.ValueLayout.JAVA_BOOLEAN;
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
@@ -42,6 +47,7 @@ import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 import static java.lang.invoke.MethodType.methodType;
+import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -454,11 +460,11 @@ public final class MemoryAccessFactory {
     return new Lazy(lookup, recordType, layout, Lazy.INIT_SETTER, Lazy.INIT_SETTER_TYPE).dynamicInvoker();
   }
 
-  final static class MappingSpliterator<T> implements Spliterator<T> {
-    private final MemoryAccess<T> memoryAccess;
+  private final static class MappingSpliterator<T> implements Spliterator<T> {
+    private final MemoryAccessImpl<T> memoryAccess;
     private final Spliterator<MemorySegment> spliterator;
 
-    MappingSpliterator(MemoryAccess<T> memoryAccess, Spliterator<MemorySegment> spliterator) {
+    MappingSpliterator(MemoryAccessImpl<T> memoryAccess, Spliterator<MemorySegment> spliterator) {
       this.memoryAccess = memoryAccess;
       this.spliterator = spliterator;
     }
@@ -508,6 +514,27 @@ public final class MemoryAccessFactory {
     }
 
     @Override
+    public MemorySegment newValue(Arena arena) {
+      requireNonNull(arena, "arena is null");
+      return arena.allocate(layout);
+    }
+
+    @Override
+    public MemorySegment newValue(Arena arena, T element) {
+      requireNonNull(arena, "arena is null");
+      requireNonNull(element, "element is null");
+      var segment = arena.allocate(layout);
+      set(segment, element);
+      return segment;
+    }
+
+    @Override
+    public MemorySegment newArray(Arena arena, long size) {
+      requireNonNull(arena, "arena is null");
+      return arena.allocate(layout, size);
+    }
+
+    @Override
     public long byteOffset(String path) {
       requireNonNull(path, "path is null");
       try {
@@ -539,6 +566,61 @@ public final class MemoryAccessFactory {
     }
 
     @Override
+    public T getAtIndex(MemorySegment segment, long index) {
+      requireNonNull(segment, "segment is null");
+      var layout = this.layout;
+      return get(segment.asSlice(index * layout.byteSize(), layout));
+    }
+
+    @Override
+    public Stream<T> stream(MemorySegment segment) {
+      requireNonNull(segment, "segment is null");
+      var spliterator = segment.spliterator(layout);
+      return StreamSupport.stream(new MappingSpliterator<>(this, spliterator), false);
+    }
+
+    @Override
+    public List<T> list(MemorySegment segment) {
+      requireNonNull(segment, "segment is null");
+      var layout = this.layout;
+      if (layout.byteSize() == 0) {
+        throw new IllegalArgumentException("element layout size cannot be zero");
+      }
+      segment.asSlice(0, layout);  // check alignment
+      if ((segment.byteSize() % layout.byteSize()) != 0) {
+        throw new IllegalArgumentException("segment size is not a multiple of layout size");
+      }
+      var size = Math.toIntExact(segment.byteSize() / layout.byteSize());
+      class MappingList extends AbstractList<T> implements RandomAccess {
+        @Override
+        public int size() {
+          return size;
+        }
+
+        @Override
+        public T get(int index) {
+          checkIndex(index, size);
+          return getAtIndex(segment, index);
+        }
+
+        @Override
+        public T set(int index, T element) {
+          checkIndex(index, size);
+          var old = getAtIndex(segment, index);
+          setAtIndex(segment, index, element);
+          return old;
+        }
+
+        @Override
+        public Spliterator<T> spliterator() {
+          var spliterator = segment.spliterator(layout);
+          return new MappingSpliterator<>(MemoryAccessImpl.this, spliterator);
+        }
+      }
+      return new MappingList();
+    }
+
+    @Override
     public void set(MemorySegment segment, T element) {
       requireNonNull(segment, "segment is null");
       requireNonNull(element, "element is null");
@@ -547,6 +629,14 @@ public final class MemoryAccessFactory {
       } catch (Throwable e) {
         throw rethrow(e);
       }
+    }
+
+    @Override
+    public void setAtIndex(MemorySegment segment, long index, T element) {
+      requireNonNull(segment, "segment is null");
+      requireNonNull(element, "element is null");
+      var layout = layout();
+      set(segment.asSlice(index * layout.byteSize(), layout), element);
     }
 
     @Override

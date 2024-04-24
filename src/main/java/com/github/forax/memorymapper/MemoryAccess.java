@@ -5,15 +5,9 @@ import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
-import java.util.AbstractList;
 import java.util.List;
-import java.util.RandomAccess;
-import java.util.Spliterator;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
-
-import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -33,7 +27,7 @@ import static java.util.Objects.requireNonNull;
  *     </ul>
  * </ul>
  *
- * Creating a {@Code MemoryAccess} instance?
+ * Creating a {@link MemoryAccess} instance?
  * <p>
  * The idea is to declare a record for a struct and create a MemoryAccess instance.
  * A memory layout is derived from the record description with by default all the field correctly aligned
@@ -153,10 +147,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *
    * @see Arena#allocate(MemoryLayout)
    */
-  default MemorySegment newValue(Arena arena) {
-    requireNonNull(arena, "arena is null");
-    return arena.allocate(layout());
-  }
+  MemorySegment newValue(Arena arena);
 
   /**
    * Allocates a new memory segment of the size of the layout
@@ -169,13 +160,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    * @see #newValue(Arena)
    * @see #set(MemorySegment, Object)
    */
-  default MemorySegment newValue(Arena arena, T element) {
-    requireNonNull(arena, "arena is null");
-    requireNonNull(element, "element is null");
-    var segment = arena.allocate(layout());
-    set(segment, element);
-    return segment;
-  }
+  MemorySegment newValue(Arena arena, T element);
 
   /**
    * Allocates a new memory segment able to contain {@code size} element.
@@ -184,10 +169,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    * @return a new memory segment able to contain size element.
    * @throws IllegalArgumentException – if size &lt; 0
    */
-  default MemorySegment newArray(Arena arena, long size) {
-    requireNonNull(arena, "arena is null");
-    return arena.allocate(layout(), size);
-  }
+  MemorySegment newArray(Arena arena, long size);
 
   /**
    * Returns a VarHandle able to access data from a path pattern.
@@ -236,11 +218,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *                                       containing only values and other structs.
    * @see #setAtIndex(MemorySegment, long, Object)
    */
-  default T getAtIndex(MemorySegment segment, long index) {
-    requireNonNull(segment, "segment is null");
-    var layout = layout();
-    return get(segment.asSlice(index * layout.byteSize(), layout));
-  }
+  T getAtIndex(MemorySegment segment, long index);
 
   /**
    * Returns a stream of records from the values of the memory segment.
@@ -250,11 +228,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *                                  if the layout does not describe a struct layout
    *                                  containing only values and other structs.
    */
-  default Stream<T> stream(MemorySegment segment) {
-    requireNonNull(segment, "segment is null");
-    var spliterator = segment.spliterator(layout());
-    return StreamSupport.stream(new MemoryAccessFactory.MappingSpliterator<>(this, spliterator), false);
-  }
+  Stream<T> stream(MemorySegment segment);
 
   /**
    * Returns a view of the memory segment as a list.
@@ -264,45 +238,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *                                  if the layout does not describe a struct layout
    *                                  containing only values and other structs.
    */
-  default List<T> list(MemorySegment segment) {
-    requireNonNull(segment, "segment is null");
-    var layout = layout();
-    if (layout.byteSize() == 0) {
-      throw new IllegalArgumentException("element layout size cannot be zero");
-    }
-    segment.asSlice(0, layout);  // check alignment
-    if ((segment.byteSize() % layout.byteSize()) != 0) {
-      throw new IllegalArgumentException("segment size is not a multiple of layout size");
-    }
-    var size = Math.toIntExact(segment.byteSize() / layout.byteSize());
-    class MappingList extends AbstractList<T> implements RandomAccess {
-      @Override
-      public int size() {
-        return size;
-      }
-
-      @Override
-      public T get(int index) {
-        checkIndex(index, size);
-        return MemoryAccess.this.getAtIndex(segment, index);
-      }
-
-      @Override
-      public T set(int index, T element) {
-        checkIndex(index, size);
-        var old = MemoryAccess.this.getAtIndex(segment, index);
-        MemoryAccess.this.setAtIndex(segment, index, element);
-        return old;
-      }
-
-      @Override
-      public Spliterator<T> spliterator() {
-        var spliterator = segment.spliterator(layout);
-        return new MemoryAccessFactory.MappingSpliterator<>(MemoryAccess.this, spliterator);
-      }
-    }
-    return new MappingList();
-  }
+  List<T> list(MemorySegment segment);
 
   /**
    * Sets the data of the segment with the values of the element.
@@ -326,12 +262,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *                                       containing only values and other structs.
    * @see #getAtIndex(MemorySegment, long)
    */
-  default void setAtIndex(MemorySegment segment, long index, T element) {
-    requireNonNull(segment, "segment is null");
-    requireNonNull(element, "element is null");
-    var layout = layout();
-    set(segment.asSlice(index * layout.byteSize(), layout), element);
-  }
+  void setAtIndex(MemorySegment segment, long index, T element);
 
   /**
    * Creates a memory access object from a record type (and a lookup).
