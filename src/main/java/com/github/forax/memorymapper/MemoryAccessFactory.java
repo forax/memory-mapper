@@ -255,11 +255,16 @@ public final class MemoryAccessFactory {
   }
 
   private static final class Cache extends MutableCallSite {
-    private static final MethodHandle FALLBACK, TEST;
+    private static final MethodHandle OFFSET_FALLBACK, VARHANDLE_FALLBACK, TEST;
+    private static final MethodType BYTE_OFFSET_TYPE, VARHANDLE_TYPE;
     static {
+      BYTE_OFFSET_TYPE = methodType(long.class, String.class);
+      VARHANDLE_TYPE = methodType(VarHandle.class, String.class);
       var lookup = MethodHandles.lookup();
       try {
-        FALLBACK = lookup.findVirtual(Cache.class, "fallback", methodType(Object.class, String.class));
+        var fallback = lookup.findVirtual(Cache.class, "fallback", methodType(Object.class, String.class));
+        OFFSET_FALLBACK = fallback.asType(methodType(long.class, Cache.class, String.class));
+        VARHANDLE_FALLBACK = fallback.asType(methodType(VarHandle.class, Cache.class, String.class));
         TEST = lookup.findStatic(Cache.class, "test", methodType(boolean.class, String.class, String.class));
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new AssertionError(e);
@@ -270,12 +275,14 @@ public final class MemoryAccessFactory {
       return s1 == s2;
     }
 
+    private final MethodHandle fallback;
     private final Function<String, Object> computeFunction;
 
-    private Cache(Class<?> constantType, Function<String, Object> computeFunction) {
-      super(methodType(constantType, String.class));
+    private Cache(MethodType type, MethodHandle fallback, Function<String, Object> computeFunction) {
+      super(type);
+      this.fallback = fallback;
       this.computeFunction = computeFunction;
-      setTarget(FALLBACK.asType(FALLBACK.type().changeReturnType(constantType)).bindTo(this));
+      setTarget(fallback.bindTo(this));
     }
 
     private static void checkInterned(String path) {
@@ -291,15 +298,19 @@ public final class MemoryAccessFactory {
       var guard = guardWithTest(
           TEST.bindTo(path),
           dropArguments(constant(constantType, constantValue), 0, String.class),
-          new Cache(constantType, computeFunction).dynamicInvoker());
+          new Cache(type(), fallback, computeFunction).dynamicInvoker());
       setTarget(guard);
 
       return constantValue;
     }
   }
 
-  private static MethodHandle cache(Class<?> constantType, Function<String, Object> computeFunction) {
-    return new Cache(constantType, computeFunction).dynamicInvoker();
+  private static MethodHandle offsetCache(Function<String, Object> computeFunction) {
+    return new Cache(Cache.BYTE_OFFSET_TYPE, Cache.OFFSET_FALLBACK, computeFunction).dynamicInvoker();
+  }
+
+  private static MethodHandle varHandleCache(Function<String, Object> computeFunction) {
+    return new Cache(Cache.VARHANDLE_TYPE, Cache.VARHANDLE_FALLBACK, computeFunction).dynamicInvoker();
   }
 
   private static MethodHandle findCanonicalConstructor(Lookup lookup, RecordComponent[] components, Class<?> recordType) {
@@ -583,8 +594,8 @@ public final class MemoryAccessFactory {
       throw new IllegalArgumentException(recordType.getName() + " is not a record");
     }
     var layout = requireNonNull(layoutFunction.apply(recordType), "layoutFunction return value is null");
-    var offsetMH = cache(long.class, path -> offset(layout, path, pathFunction));
-    var varHandleMH = cache(VarHandle.class, path -> varHandle(layout, path, pathFunction));
+    var offsetMH = offsetCache(path -> offset(layout, path, pathFunction));
+    var varHandleMH = varHandleCache(path -> varHandle(layout, path, pathFunction));
     var getterMH = lazyGetter(lookup, recordType, layout);
     var setterMH = lazySetter(lookup, recordType, layout);
     return new MemoryAccessImpl<>(layout, offsetMH, varHandleMH, getterMH, setterMH);
