@@ -16,8 +16,8 @@ The class `MemoryAccess` provides several features helping to map a memory segme
 ### Creating a `MemoryAccess` instance?
 
 The idea is to declare a record for a struct and create a `MemoryAccess` instance.
-A memory layout is derived from the record description with by default all the field correctly aligned and
-the byte order of the CPU.
+A memory layout is derived from the record description with by default all the field correctly aligned,
+using the byte order of the CPU.
 ```java
 record Point(int x, int y) {}
 
@@ -35,6 +35,7 @@ record City(
   int id,
   @LayoutElement(padding = 4)
   long population,
+  @LayoutElement(padding = 0)
   int yearOfCreation
 ) {}
 ```
@@ -54,8 +55,8 @@ private static final MemoryAccess<Point> POINT =
   try(Arena arena = Arena.ofConfined()) {
     MemorySegment s = POINT.newValue(arena);
 
-    POINT.vh(".x").set(s, 0L, 42);            // s. x = 42
-    var y = (int) POINT.vh(".y").get(s, 0L);  // s. y
+    POINT.vh(".x").set(s, 0L, 42);            // s.x = 42
+    var y = (int) POINT.vh(".y").get(s, 0L);  // s.y
   }
 ```
 
@@ -89,13 +90,13 @@ private static final MemoryAccess<Point> POINT =
     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
   ...
   try(Arena arena = Arena.ofConfined()) {
-    MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s. x = 1, s. y = 2
-    POINT.set(s, new Point(12, 5));  // s. x = 12, s. y = 5
-    var p = POINT.get(s);            // p. x = s. x, p. y = s. y
+    MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1; s.y = 2
+    POINT.set(s, new Point(12, 5));  // s.x = 12; s.y = 5
+    var p = POINT.get(s);            // p.x = s.x; p.y = s.y
 
     MemorySegment s2 = POINT.newArray(arena);
-    POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12, s2[3].y = 5
-    var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x, p2.y = s2[7].y
+    POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12; s2[3].y = 5
+    var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x; p2.y = s2[7].y
   }
 ```
 and the methods `list(memorySegment)` and `stream(memorySegment)` sees an array respectively as a `java.util.List`
@@ -107,8 +108,8 @@ private static final MemoryAccess<Point> POINT =
   try(Arena arena = Arena.ofConfined()) {
     MemorySegment s = POINT.newArray(arena);
     List<Point> l = POINT.list(segment);
-    l.set(3, new Point(12, 5));   // s[3].x = 12, s[3].y = 5
-    var p = l.get(7);             // p. x = s[7].x, p. y = s[7].y
+    l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
+    var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
   }
 ```
 
