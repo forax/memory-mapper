@@ -59,10 +59,6 @@ private static final MemoryAccess<Point> POINT =
     MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1; s.y = 2
     POINT.set(s, new Point(12, 5));  // s.x = 12; s.y = 5
     var p = POINT.get(s);            // p.x = s.x; p.y = s.y
-
-    MemorySegment s2 = POINT.newArray(arena);
-    POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12; s2[3].y = 5
-    var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x; p2.y = s2[7].y
   }
 ```
 
@@ -77,13 +73,9 @@ private static final MemoryAccess<Point> POINT =
     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
   ...
   try(Arena arena = Arena.ofConfined()) {
-    MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1; s.y = 2
-    POINT.set(s, new Point(12, 5));  // s.x = 12; s.y = 5
-    var p = POINT.get(s);            // p.x = s.x; p.y = s.y
-
-    MemorySegment s2 = POINT.newArray(arena);
-    POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12; s2[3].y = 5
-    var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x; p2.y = s2[7].y
+    MemorySegment s = POINT.newArray(arena, 10);
+    POINT.setAtIndex(s, 3L, new Point(12, 5));  // s[3].x = 12; s[3].y = 5
+    var p = POINT.getAtIndex(s, 7L);            // p.x = s[7].x; p.y = s[7].y
   }
 ```
 
