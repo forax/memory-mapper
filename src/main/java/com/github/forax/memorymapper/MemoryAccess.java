@@ -14,30 +14,31 @@ import static java.util.Objects.requireNonNull;
  * This class provides several features helping to map a {@link MemorySegment memory segment} to record instances
  * or vice-versa.
  * <ul>
- *   <li>Create a memory access with auto-padding of the layout like in C  ({@link #reflect(Lookup, Class)})
- *   <li>Convenient methods to get a {@link #varHandle(MemoryAccess, String)}  VarHandle} or
- *       a {@link #byteOffset(MemoryAccess, String) byteOffset} from a literal string path
+ *   <li>Create a memory access with auto-padding of the layout like in C, {@link #reflect(Lookup, Class)}
+ *   <li>Convenient methods
  *   <li>Methods that
  *     <ul>
- *       <li>allocate a segment ({@link #newValue(Arena)} and {@link #newValue(Arena, Object)})
- *       <li>allocate an array ({@link #newArray(Arena, long)})
- *       <li>get/set a segment from/to a record ({@link #get(MemorySegment)} and {@link #set(MemorySegment, Object)})@
- *       <li>get/set a segment at an index from/to a record ({@link #getAtIndex(MemorySegment, long)} and
- *           {@link #setAtIndex(MemorySegment, long, Object)})
+ *       <li>allocate a segment, {@link #newValue(Arena)} and {@link #newValue(Arena, Object)}
+ *       <li>allocate an array, {@link #newArray(Arena, long)}
+ *       <li>get/set a segment from/to a record, {@link #get(MemorySegment)} and {@link #set(MemorySegment, Object)}
+ *       <li>get/set a segment at an index from/to a record, {@link #getAtIndex(MemorySegment, long)} and
+ *           {@link #setAtIndex(MemorySegment, long, Object)}
+ *       <li>get a {@link #varHandle(MemoryAccess, String)} VarHandle} or a
+ *           {@link #byteOffset(MemoryAccess, String) byteOffset} from memory access and a string path.
  *     </ul>
  * </ul>
  *
  * Creating a {@link MemoryAccess} instance?
  * <p>
  * The idea is to declare a record for a struct and create a MemoryAccess instance.
- * A memory layout is derived from the record description with by default all the field correctly aligned
- * and the byte order of the CPU.
+ * A memory layout is derived from the record description with by default all the field correctly aligned,
+ * using the byte order of the CPU.
  * {@snippet :
  * record Point(int x, int y) {}
  *
  * private static final MemoryAccess<Point> POINT = MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
  *
- *   System.out.println(POINT.layout());
+ *   System.out.println(MemoryAccess.layout(POINT));
  *}
  *
  * The record can be decorated with annotations to specify the layout in memory. For example here, the padding
@@ -49,25 +50,78 @@ import static java.util.Objects.requireNonNull;
  *   int id,
  *   @LayoutElement(padding = 4)
  *   long population,
+ *   @LayoutElement(padding = 0)
  *   int yearOfCreation
  * ) {}
  * }
  *
  * The annotation {@link LayoutElement} describes the {@link MemoryLayout layout} of each field.
  * The annotation {@link Layout} specifies the layout of the data structure.
+ *
+ * <b>Allocating an instance and accessing its fields using a record</b>
  * <p>
- * <b>Allocating an instance and accessing its fields</b>
+ * The method `newValue(arena)` allocates a memory segment of the size of the layout.
+ * The method `newValue(arena, record)` initialize a memory segment and initialize all the fields from a record instance.
  * <p>
- * The method {@link #newValue(Arena)} allocates a memory segment of the size of the layout.
- * The method {@link #varHandle(MemoryAccess, String)} returns a constant {@link VarHandle} allowing to get
- * or set the values of the fields from a string path.
+ * The methods {@link #get(MemorySegment)} and {@link #set(MemorySegment, Object)} respectively returns a record from
+ * a struct and set the values of a struct from a record.
  * <p>
  * {@snippet :
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- * private static final VarHandle POINT_X = MemoryAccess.varHandle(POINT, ".x");
- * private static final VarHandle POINT_Y = MemoryAccess.varHandle(POINT, ".y");
+ *   ...
+ *   try(Arena arena = Arena.ofConfined()) {
+ *     MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1; s.y = 2
+ *     POINT.set(s, new Point(12, 5));  // s.x = 12; s.y = 5
+ *     var p = POINT.get(s);            // p.x = s.x; p.y = s.y
+ *   }
+ * }
  *
+ * <b>Allocating an array and accessing its elements using records</b>
+ * <p>
+ * The method {@link #newArray(Arena, long)} allocate an array with a size.
+ * The methods {@link #getAtIndex(MemorySegment, long)}` and {@link #setAtIndex(MemorySegment, long, Object)}
+ * respectively get a record from the array of structs using an index or set the struct of the array with an index.
+ * <p>
+ * {@snippet :
+ * private static final MemoryAccess<Point> POINT =
+ *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *   ...
+ *   try(Arena arena = Arena.ofConfined()) {
+ *     MemorySegment s = POINT.newArray(arena, 10);
+ *     POINT.setAtIndex(s, 3L, new Point(12, 5));  // s[3].x = 12; s[3].y = 5
+ *     var p = POINT.getAtIndex(s, 7L);            // p.x = s[7].x; p.y = s[7].y
+ *   }
+ * }
+ *
+ * <b>More high level methods</b>
+ * <p>
+ * The `MemoryAccess` API also provides the methods {@link #list(MemorySegment)} and {@link #stream(MemorySegment)}
+ * that see an array respectively as a `java.util.List` (limited at 2G elements) and a `java.util.stream.Stream`
+ * {@snippet :
+ * private static final MemoryAccess<Point> POINT =
+ *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ *   ...
+ *   MemorySegment s = POINT.newArray(arena.ofAuto(), 10);
+ *   List<Point> l = POINT.list(segment);
+ *   l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
+ *   var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
+ * }
+ * <p>
+ * <b>Convenient way to create a VarHandle for an element field</b>
+ * <p>
+ * The method {@link #varHandle(MemoryAccess, String)} returns a constant VarHandle allowing to get and set the values
+ * of the fields from a string path.
+ * <p>
+ * {@snippet :
+ * import static java.lang.invoke.MethodHandles.lookup;
+ * import static com.github.forax.memorymapper.MemoryAccess.reflect;
+ * import static com.github.forax.memorymapper.MemoryAccess.varHandle;
+ *
+ * private static final MemoryAccess<Point> POINT = reflect(lookup(), Point.class);
+ * private static final VarHandle POINT_X = varHandle(POINT, ".x");
+ * private static final VarHandle POINT_Y = varHandle(POINT, ".y");
+ *   ...
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newValue(arena);
  *
@@ -76,60 +130,27 @@ import static java.util.Objects.requireNonNull;
  *   }
  * }
  *
- * <b>Allocating an array and accessing its element</b>
+ * <b>Convenient way to create a VarHandle for an element field of an array</b>
  * <p>
- * The method {@link #newArray(Arena, long)}  allocate an array with a size.
  * The method {@link #varHandle(MemoryAccess, String)} also allows to access to the elements of an array
- * using the prefix "[]".
+ * of struct using the prefix '[]'.
  * <p>
  * {@snippet :
- * private static final MemoryAccess<Point> POINT =
- *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- * private static final VarHandle POINT_INDEX_X = MemoryAccess.varHandle(POINT, "[].x");
- * private static final VarHandle POINT_INDEX_Y = MemoryAccess.varHandle(POINT, "[].y");
+ * import static java.lang.invoke.MethodHandles.lookup;
+ * import static com.github.forax.memorymapper.MemoryAccess.reflect;
+ * import static com.github.forax.memorymapper.MemoryAccess.varHandle;
  *
+ * private static final MemoryAccess<Point> POINT = reflect(lookup(), Point.class);
+ * private static final VarHandle ARRAY_X = varHandle(POINT, "[].x");
+ * private static final VarHandle ARRAY_Y = varHandle(POINT, "[].y");
+ *   ...
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newArray(arena, 10);
  *
  *     for(long i = 0L; i < 10L; i++) {
- *       POINT_INDEX_X.set(s, 0L, i, 42);            // s[i].x = 42
- *       var y = (int) POINT_INDEX_Y.get(s, 0L, i);  // s[i].y
+ *       ARRAY_X.set(s, 0L, i, 42);            // s[i].x = 42
+ *       var y = (int) ARRAY_Y.get(s, 0L, i);  // s[i].y
  *     }
- *   }
- * }
- *
- * <b>Mapping a segment to record instances</b>
- * <p>
- * The method {@link #newValue(Arena, Object)} initialize a memory segment and initialize all the fields from a
- * record instance.
- * The methods {@link #getAtIndex(MemorySegment, long)} and {@link #setAtIndex(MemorySegment, long, Object)}
- * get and set all the fields in bulk from/into a record instance.
- * {@snippet :
- *  private static final MemoryAccess<Point> POINT =
- *      MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- *
- *    try(Arena arena = Arena.ofConfined()) {
- *      MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1, s.y = 2
- *      POINT.set(s, new Point(12, 5));  // s.x = 12, s.y = 5
- *      var p = POINT.get(s);            // p.x = s.x, p.y = s.y
- *
- *      MemorySegment s2 = POINT.newArray(arena);
- *      POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12, s2[3].y = 5
- *      var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x, p2.y = s2[7].y
- *    }
- *}
- *
- * and the methods {@link #list(MemorySegment)} and {@link #stream(MemorySegment)} sees an array
- * respectively as a {@code java.util.List} (limited at 2G elements) and a {@code java.util.stream.Stream}.
- * {@snippet :
- * private static final MemoryAccess<Point> POINT =
- *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- *
- *   try(Arena arena = Arena.ofConfined()) {
- *     MemorySegment s = POINT.newArray(arena);
- *     List<Point> l = POINT.list(segment);
- *     l.set(3, new Point(12, 5));   // s[3].x = 12, s[3].y = 5
- *     var p = l.get(7);             // p.x = s[7].x, p.y = s[7].y
  *   }
  * }
  *

@@ -79,7 +79,7 @@ private static final MemoryAccess<Point> POINT =
   }
 ```
 
-### More highlevel methods
+### More high level methods
 
 The `MemoryAccess` API also provides the methods `list(memorySegment)` and `stream(memorySegment)` that see
 an array respectively as a `java.util.List` (limited at 2G elements) and a `java.util.stream.Stream`
