@@ -57,6 +57,7 @@ import static java.util.Objects.requireNonNull;
  *
  * The annotation {@link LayoutElement} describes the {@link MemoryLayout layout} of each field.
  * The annotation {@link Layout} specifies the layout of the data structure.
+ * <p>
  *
  * <b>Allocating an instance and accessing its fields using a record</b>
  * <p>
@@ -69,7 +70,7 @@ import static java.util.Objects.requireNonNull;
  * {@snippet :
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- *   ...
+ *
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newValue(arena, new Point(1, 2));  // s.x = 1; s.y = 2
  *     POINT.set(s, new Point(12, 5));  // s.x = 12; s.y = 5
@@ -86,7 +87,7 @@ import static java.util.Objects.requireNonNull;
  * {@snippet :
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- *   ...
+ *
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newArray(arena, 10);
  *     POINT.setAtIndex(s, 3L, new Point(12, 5));  // s[3].x = 12; s[3].y = 5
@@ -101,7 +102,7 @@ import static java.util.Objects.requireNonNull;
  * {@snippet :
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
- *   ...
+ *
  *   MemorySegment s = POINT.newArray(arena.ofAuto(), 10);
  *   List<Point> l = POINT.list(segment);
  *   l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
@@ -121,7 +122,7 @@ import static java.util.Objects.requireNonNull;
  * private static final MemoryAccess<Point> POINT = reflect(lookup(), Point.class);
  * private static final VarHandle POINT_X = varHandle(POINT, ".x");
  * private static final VarHandle POINT_Y = varHandle(POINT, ".y");
- *   ...
+ *
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newValue(arena);
  *
@@ -143,7 +144,7 @@ import static java.util.Objects.requireNonNull;
  * private static final MemoryAccess<Point> POINT = reflect(lookup(), Point.class);
  * private static final VarHandle ARRAY_X = varHandle(POINT, "[].x");
  * private static final VarHandle ARRAY_Y = varHandle(POINT, "[].y");
- *   ...
+ *
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newArray(arena, 10);
  *
