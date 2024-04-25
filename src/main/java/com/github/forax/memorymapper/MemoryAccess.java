@@ -15,8 +15,8 @@ import static java.util.Objects.requireNonNull;
  * or vice-versa.
  * <ul>
  *   <li>Create a memory access with auto-padding of the layout like in C  ({@link #reflect(Lookup, Class)})
- *   <li>Access to a {@link #vh(String) VarHandle} or a {@link #byteOffset(String) byteOffset}
- *       from a literal string path
+ *   <li>Convenient methods to get a {@link #varHandle(MemoryAccess, String)}  VarHandle} or
+ *       a {@link #byteOffset(MemoryAccess, String) byteOffset} from a literal string path
  *   <li>Methods that
  *     <ul>
  *       <li>allocate a segment ({@link #newValue(Arena)} and {@link #newValue(Arena, Object)})
@@ -59,36 +59,41 @@ import static java.util.Objects.requireNonNull;
  * <b>Allocating an instance and accessing its fields</b>
  * <p>
  * The method {@link #newValue(Arena)} allocates a memory segment of the size of the layout.
- * The method {@link #vh(String)} returns a constant {@link VarHandle} allowing to get and set the
- * values of the fields from a string path.
- *
+ * The method {@link #varHandle(MemoryAccess, String)} returns a constant {@link VarHandle} allowing to get
+ * or set the values of the fields from a string path.
+ * <p>
  * {@snippet :
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ * private static final VarHandle POINT_X = MemoryAccess.varHandle(POINT, ".x");
+ * private static final VarHandle POINT_Y = MemoryAccess.varHandle(POINT, ".y");
  *
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newValue(arena);
  *
- *     POINT.vh(".x").set(s, 0L, 42);            // s.x = 42
- *     var y = (int) POINT.vh(".y").get(s, 0L);  // s.y
+ *     POINT_X.set(s, 0L, 42);            // s.x = 42
+ *     var y = (int) POINT_Y.get(s, 0L);  // s.y
  *   }
  * }
  *
  * <b>Allocating an array and accessing its element</b>
  * <p>
  * The method {@link #newArray(Arena, long)}  allocate an array with a size.
- * The method {@link #vh(String)} also allows to access to the elements of an array using the prefix "[]".
- *
+ * The method {@link #varHandle(MemoryAccess, String)} also allows to access to the elements of an array
+ * using the prefix "[]".
+ * <p>
  * {@snippet :
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
+ * private static final VarHandle POINT_INDEX_X = MemoryAccess.varHandle(POINT, "[].x");
+ * private static final VarHandle POINT_INDEX_Y = MemoryAccess.varHandle(POINT, "[].y");
  *
  *   try(Arena arena = Arena.ofConfined()) {
  *     MemorySegment s = POINT.newArray(arena, 10);
  *
  *     for(long i = 0L; i < 10L; i++) {
- *       POINT.vh("[].x").set(s, 0L, i, 42);            // s[i].x = 42
- *       var y = (int) POINT.vh("[].y").get(s, 0L, i);  // s[i].y
+ *       POINT_INDEX_X.set(s, 0L, i, 42);            // s[i].x = 42
+ *       var y = (int) POINT_INDEX_Y.get(s, 0L, i);  // s[i].y
  *     }
  *   }
  * }
@@ -112,7 +117,7 @@ import static java.util.Objects.requireNonNull;
  *      POINT.setAtIndex(s2, 3L, new Point(12, 5));  // s2[3].x = 12, s2[3].y = 5
  *      var p2 = POINT.getAtIndex(segment2, 7L);     // p2.x = s2[7].x, p2.y = s2[7].y
  *    }
- * }
+ *}
  *
  * and the methods {@link #list(MemorySegment)} and {@link #stream(MemorySegment)} sees an array
  * respectively as a {@code java.util.List} (limited at 2G elements) and a {@code java.util.stream.Stream}.
@@ -131,14 +136,6 @@ import static java.util.Objects.requireNonNull;
  * @param <T> type of the record
  */
 public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccessImpl {
-  /**
-   * Returns the computed memory layout.
-   * @return the computed memory layout.
-   * 
-   * @see MemoryAccessFactory#defaultLayout(Class)
-   */
-  MemoryLayout layout();
-
   /**
    * Allocates a new memory segment of the size of the layout.
    * All the bytes are initialized at 0.
@@ -170,31 +167,6 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    * @throws IllegalArgumentException – if size &lt; 0
    */
   MemorySegment newArray(Arena arena, long size);
-
-  /**
-   * Returns a VarHandle able to access data from a path pattern.
-   *
-   * @param path a string encoding how to get the data, using {@code []} for array access,
-   *             {@code .member} for member access. Those patterns can be composed by
-   *             concatenating them.
-   * @return a VarHandle able to access data using the path pattern.
-   * @throws IllegalArgumentException if the path is not an interned string.
-   *
-   * @see MemoryAccessFactory#defaultPath(String)
-   */
-  VarHandle vh(String path);
-
-  /**
-   * Returns the offset of the data from a path pattern.
-   * @param path a string encoding how to get the data, using {@code []} for array access,
-   *             {@code .member} for member access. Those patterns can be composed by
-   *             concatenating them.
-   * @return the offset of the data from a path pattern.
-   * @throws IllegalArgumentException if the path is not an interned string.
-   *
-   * @see MemoryAccessFactory#defaultPath(String)
-   */
-  long byteOffset(String path);
 
   /**
    * Gets the value from the segment and creates the corresponding record.
@@ -277,6 +249,49 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
     requireNonNull(lookup, "lookup is null");
     requireNonNull(recordType, "recordType is null");
     return MemoryAccessFactory.create(lookup, recordType, MemoryAccessFactory::defaultLayout, MemoryAccessFactory::defaultPath);
+  }
+
+  /**
+   * Returns the computed memory layout of a memory access.
+   * @param memoryAccess the memory access
+   * @return the computed memory layout of a memory access.
+   *
+   * @see MemoryAccessFactory#defaultLayout(Class)
+   */
+  static MemoryLayout layout(MemoryAccess<?> memoryAccess) {
+    var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
+    return impl.layout();
+  }
+
+  /**
+   * Returns a VarHandle able to access data from a path pattern.
+   * @param memoryAccess the memory access
+   * @param path a string encoding how to get the data, using {@code []} for array access,
+   *             {@code .member} for member access. Those patterns can be composed by
+   *             concatenating them.
+   * @return a VarHandle able to access data using the path pattern.
+   *
+   * @see MemoryAccessFactory#defaultPath(String)
+   */
+  static VarHandle varHandle(MemoryAccess<?> memoryAccess, String path) {
+    var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
+    return MemoryAccessFactory.varHandle(impl.layout(), path, impl.pathFunction());
+  }
+
+  /**
+   * Returns the offset of the data from a path pattern.
+   * @param memoryAccess the memory access
+   * @param path a string encoding how to get the data, using {@code []} for array access,
+   *             {@code .member} for member access. Those patterns can be composed by
+   *             concatenating them.
+   * @return the offset of the data from a path pattern.
+   * @throws IllegalArgumentException if the path is not an interned string.
+   *
+   * @see MemoryAccessFactory#defaultPath(String)
+   */
+  static long byteOffset(MemoryAccess<?> memoryAccess, String path) {
+    var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
+    return MemoryAccessFactory.byteOffset(impl.layout(), path, impl.pathFunction());
   }
 }
 

@@ -8,6 +8,10 @@ import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.ValueLayout;
 import java.nio.ByteOrder;
 
+import static com.github.forax.memorymapper.MemoryAccess.byteOffset;
+import static com.github.forax.memorymapper.MemoryAccess.layout;
+import static com.github.forax.memorymapper.MemoryAccess.reflect;
+import static com.github.forax.memorymapper.MemoryAccess.varHandle;
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,8 +24,8 @@ public class MemoryAccessTest {
       record Point(int x, int y) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Point.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_INT.withName("x"),
           ValueLayout.JAVA_INT.withName("y")
       ));
@@ -34,8 +38,8 @@ public class MemoryAccessTest {
       record Bar(int s, Foo foo) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Bar.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Bar.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_INT.withName("s"),
           MemoryLayout.structLayout(
               ValueLayout.JAVA_INT.withName("v")
@@ -48,11 +52,11 @@ public class MemoryAccessTest {
       record Point(int x, int y) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       assertAll(
-          () -> assertEquals(8, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".x")),
-          () -> assertEquals(4, access.byteOffset(".y"))
+          () -> assertEquals(8, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".x")),
+          () -> assertEquals(4, byteOffset(access, ".y"))
       );
     }
 
@@ -61,11 +65,11 @@ public class MemoryAccessTest {
       record Pair(byte b1, byte b2) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Pair.class);
+      var access = reflect(lookup(), Pair.class);
       assertAll(
-          () -> assertEquals(2, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".b1")),
-          () -> assertEquals(1, access.byteOffset(".b2"))
+          () -> assertEquals(2, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".b1")),
+          () -> assertEquals(1, byteOffset(access, ".b2"))
       );
     }
 
@@ -74,11 +78,11 @@ public class MemoryAccessTest {
       record Foo(short s, int i) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(8, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".s")),
-          () -> assertEquals(4, access.byteOffset(".i"))
+          () -> assertEquals(8, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".s")),
+          () -> assertEquals(4, byteOffset(access, ".i"))
       );
     }
 
@@ -87,12 +91,12 @@ public class MemoryAccessTest {
       record Foo(byte b, short s, int i) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(8, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".b")),
-          () -> assertEquals(2, access.byteOffset(".s")),
-          () -> assertEquals(4, access.byteOffset(".i"))
+          () -> assertEquals(8, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".b")),
+          () -> assertEquals(2, byteOffset(access, ".s")),
+          () -> assertEquals(4, byteOffset(access, ".i"))
       );
     }
 
@@ -101,12 +105,12 @@ public class MemoryAccessTest {
       record Foo(byte b, byte b2, int i) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(8, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".b")),
-          () -> assertEquals(1, access.byteOffset(".b2")),
-          () -> assertEquals(4, access.byteOffset(".i"))
+          () -> assertEquals(8, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".b")),
+          () -> assertEquals(1, byteOffset(access, ".b2")),
+          () -> assertEquals(4, byteOffset(access, ".i"))
       );
     }
 
@@ -115,11 +119,11 @@ public class MemoryAccessTest {
       record Foo(int i, byte b) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(8, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".i")),
-          () -> assertEquals(4, access.byteOffset(".b"))
+          () -> assertEquals(8, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".i")),
+          () -> assertEquals(4, byteOffset(access, ".b"))
       );
     }
 
@@ -128,12 +132,12 @@ public class MemoryAccessTest {
       record Foo(char c, long l, int i) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(24, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".c")),
-          () -> assertEquals(8, access.byteOffset(".l")),
-          () -> assertEquals(16, access.byteOffset(".i"))
+          () -> assertEquals(24, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".c")),
+          () -> assertEquals(8, byteOffset(access, ".l")),
+          () -> assertEquals(16, byteOffset(access, ".i"))
       );
     }
   }
@@ -146,12 +150,12 @@ public class MemoryAccessTest {
       record IntValue(int value) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), IntValue.class);
+      var access = reflect(lookup(), IntValue.class);
       try (var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
-        access.vh(".value").set(segment, 0L, 42);
-        var value = (int) access.vh(".value").get(segment, 0L);
+        varHandle(access, ".value").set(segment, 0L, 42);
+        var value = (int) varHandle(access, ".value").get(segment, 0L);
         assertEquals(42, value);
       }
     }
@@ -161,15 +165,15 @@ public class MemoryAccessTest {
       record Point(int x, int y) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try (var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
-        access.vh(".x").set(segment, 0L, 45);
-        access.vh(".y").set(segment, 0L, 99);
+        varHandle(access, ".x").set(segment, 0L, 45);
+        varHandle(access, ".y").set(segment, 0L, 99);
 
-        assertEquals(45, (int) access.vh(".x").get(segment, 0L));
-        assertEquals(99, (int) access.vh(".y").get(segment, 0L));
+        assertEquals(45, (int) varHandle(access, ".x").get(segment, 0L));
+        assertEquals(99, (int) varHandle(access, ".y").get(segment, 0L));
       }
     }
 
@@ -178,34 +182,19 @@ public class MemoryAccessTest {
       record IntValue(int value) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), IntValue.class);
+      var access = reflect(lookup(), IntValue.class);
       try (var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 4);
 
         for (var i = 0L; i < 4L; i++) {
-          access.vh("[].value").set(segment, 0L, i, 42);
+          varHandle(access, "[].value").set(segment, 0L, i, 42);
         }
 
         for (var i = 0L; i < 4L; i++) {
-          var value = (int) access.vh("[].value").get(segment, 0L, i);
+          var value = (int) varHandle(access, "[].value").get(segment, 0L, i);
           assertEquals(42, value);
         }
       }
-    }
-
-    @Test
-    public void varHandleSharing() {
-      record Foo(int value) {}
-
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertSame(access.vh(".value"), access.vh(".value"));
-    }
-
-    @Test
-    public void varHandleFailIfPathIsNotAnInternedString() {
-      record Foo(int value) {}
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertThrows(IllegalArgumentException.class, () -> access.vh(new String(".value")));
     }
   }
 
@@ -216,8 +205,8 @@ public class MemoryAccessTest {
       @Layout
       record Foo(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_INT.withName("value")
       ));
     }
@@ -227,8 +216,8 @@ public class MemoryAccessTest {
       @Layout(kind = Layout.Kind.STRUCT)
       record Foo(float value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_FLOAT.withName("value")
       ));
     }
@@ -238,8 +227,8 @@ public class MemoryAccessTest {
       @Layout(kind = Layout.Kind.UNION)
       record Foo(int value, long value2) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.unionLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.unionLayout(
           ValueLayout.JAVA_INT.withName("value"),
           ValueLayout.JAVA_LONG.withName("value2")
       ));
@@ -250,8 +239,8 @@ public class MemoryAccessTest {
       @Layout(autoPadding = false)
       record Foo(short s, @LayoutElement(alignment = 1) int i) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_SHORT.withName("s"),
           ValueLayout.JAVA_INT.withName("i").withByteAlignment(1)
       ));
@@ -262,8 +251,8 @@ public class MemoryAccessTest {
       @Layout(autoPadding = false)
       record Foo(short s, @LayoutElement(padding = 2) int i) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_SHORT.withName("s"),
           MemoryLayout.paddingLayout(2L),
           ValueLayout.JAVA_INT.withName("i")
@@ -274,8 +263,8 @@ public class MemoryAccessTest {
     public void elementName() {
       record Foo(@LayoutElement(name = "bar") int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_INT.withName("bar")
       ));
     }
@@ -284,8 +273,8 @@ public class MemoryAccessTest {
     public void elementByteOrderLittleEndian() {
       record Foo(@LayoutElement(order = LayoutElement.ByteOrder.LITTLE_ENDIAN) int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_INT.withName("value").withOrder(ByteOrder.LITTLE_ENDIAN)
       ));
     }
@@ -294,8 +283,8 @@ public class MemoryAccessTest {
     public void elementByteOrderBigEndian() {
       record Foo(@LayoutElement(order = LayoutElement.ByteOrder.BIG_ENDIAN) int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertEquals(access.layout(), MemoryLayout.structLayout(
+      var access = reflect(lookup(), Foo.class);
+      assertEquals(layout(access), MemoryLayout.structLayout(
           ValueLayout.JAVA_INT.withName("value").withOrder(ByteOrder.BIG_ENDIAN)
       ));
     }
@@ -304,10 +293,10 @@ public class MemoryAccessTest {
     public void elementByteAlignment() {
       record Foo(byte b, @LayoutElement(alignment = 1) int i) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(0, access.byteOffset(".b")),
-          () -> assertEquals(1, access.byteOffset(".i"))
+          () -> assertEquals(0, byteOffset(access, ".b")),
+          () -> assertEquals(1, byteOffset(access, ".i"))
       );
     }
 
@@ -316,20 +305,12 @@ public class MemoryAccessTest {
       @Layout(autoPadding = false, endPadding = 3)
       record Foo(int i, byte b) {}
 
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
+      var access = reflect(lookup(), Foo.class);
       assertAll(
-          () -> assertEquals(8, access.layout().byteSize()),
-          () -> assertEquals(0, access.byteOffset(".i")),
-          () -> assertEquals(4, access.byteOffset(".b"))
+          () -> assertEquals(8, layout(access).byteSize()),
+          () -> assertEquals(0, byteOffset(access, ".i")),
+          () -> assertEquals(4, byteOffset(access, ".b"))
       );
-    }
-
-    @Test
-    public void byteOffsetFailIfPathIsNotAnInternedString() {
-      record Foo(int value) {}
-
-      var access = MemoryAccess.reflect(lookup(), Foo.class);
-      assertThrows(IllegalArgumentException.class, () -> access.byteOffset(new String(".value")));
     }
   }
 
@@ -339,10 +320,10 @@ public class MemoryAccessTest {
     public void getStructPoint() {
       record Point(int x, int y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
-        access.vh(".x").set(segment, 0L, 42);
+        varHandle(access, ".x").set(segment, 0L, 42);
 
         var point = access.get(segment);
         assertEquals(new Point(42, 0), point);
@@ -354,10 +335,10 @@ public class MemoryAccessTest {
       record Coordinate(int value) {}
       record Point(Coordinate x, Coordinate y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
-        access.vh(".x.value").set(segment, 0L, 42);
+        varHandle(access, ".x.value").set(segment, 0L, 42);
 
         var point = access.get(segment);
         assertEquals(new Point(new Coordinate(42), new Coordinate(0)), point);
@@ -369,7 +350,7 @@ public class MemoryAccessTest {
       @Layout(kind = Layout.Kind.UNION)
       record Bad(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Bad.class);
+      var access = reflect(lookup(), Bad.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
@@ -383,7 +364,7 @@ public class MemoryAccessTest {
       record Union(int value) {}
       record Bad(Union union) {}
 
-      var access = MemoryAccess.reflect(lookup(), Bad.class);
+      var access = reflect(lookup(), Bad.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
@@ -395,7 +376,7 @@ public class MemoryAccessTest {
     public void getWrongAlignment() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
       try(var arena = Arena.ofConfined()) {
         var segment = arena.allocate(5);
         var shiftedSegment = segment.asSlice(1L);
@@ -410,10 +391,10 @@ public class MemoryAccessTest {
     public void getAtIndexStructPoint() {
       record Point(int x, int y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 10);
-        access.vh("[].x").set(segment, 0L, 3L, 42);
+        varHandle(access, "[].x").set(segment, 0L, 3L, 42);
 
         var point = access.getAtIndex(segment, 3L);
         assertEquals(new Point(42, 0), point);
@@ -425,10 +406,10 @@ public class MemoryAccessTest {
       record Coordinate(int value) {}
       record Point(Coordinate x, Coordinate y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 10);
-        access.vh("[].x.value").set(segment, 0L, 7L, 42);
+        varHandle(access, "[].x.value").set(segment, 0L, 7L, 42);
 
         var point = access.getAtIndex(segment, 7L);
         assertEquals(new Point(new Coordinate(42), new Coordinate(0)), point);
@@ -439,7 +420,7 @@ public class MemoryAccessTest {
     public void getAtIndexWrongAlignment() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
       try(var arena = Arena.ofConfined()) {
         var segment = arena.allocate(10);
         var shiftedSegment = segment.asSlice(1L);
@@ -454,15 +435,15 @@ public class MemoryAccessTest {
     public void setStructPoint() {
       record Point(int x, int y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try (var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
         access.set(segment, new Point(42, 17));
 
         assertAll(
-            () -> assertEquals(42, (int) access.vh(".x").get(segment, 0L)),
-            () -> assertEquals(17, (int) access.vh(".y").get(segment, 0L))
+            () -> assertEquals(42, (int) varHandle(access, ".x").get(segment, 0L)),
+            () -> assertEquals(17, (int) varHandle(access, ".y").get(segment, 0L))
         );
       }
     }
@@ -472,14 +453,14 @@ public class MemoryAccessTest {
       record Coordinate(int value) {}
       record Point(Coordinate x, Coordinate y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
         access.set(segment, new Point(new Coordinate(-5), new Coordinate(13)));
 
         assertAll(
-            () -> assertEquals(-5, (int) access.vh(".x.value").get(segment, 0L)),
-            () -> assertEquals(13, (int) access.vh(".y.value").get(segment, 0L))
+            () -> assertEquals(-5, (int) varHandle(access, ".x.value").get(segment, 0L)),
+            () -> assertEquals(13, (int) varHandle(access, ".y.value").get(segment, 0L))
         );
       }
     }
@@ -489,7 +470,7 @@ public class MemoryAccessTest {
       @Layout(kind = Layout.Kind.UNION)
       record Bad(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Bad.class);
+      var access = reflect(lookup(), Bad.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
@@ -503,7 +484,7 @@ public class MemoryAccessTest {
       record Union(int value) {}
       record Bad(Union union) {}
 
-      var access = MemoryAccess.reflect(lookup(), Bad.class);
+      var access = reflect(lookup(), Bad.class);
       try(var arena = Arena.ofConfined()) {
         var segment = access.newValue(arena);
 
@@ -515,7 +496,7 @@ public class MemoryAccessTest {
     public void setWrongAlignment() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
       try(var arena = Arena.ofConfined()) {
         var segment = arena.allocate(5);
         var shiftedSegment = segment.asSlice(1L);
@@ -531,14 +512,14 @@ public class MemoryAccessTest {
       record Point(int x, int y) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try (var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 10);
         access.setAtIndex(segment, 3, new Point(42, 17));
 
         assertAll(
-            () -> assertEquals(42, (int) access.vh("[].x").get(segment, 0L, 3L)),
-            () -> assertEquals(17, (int) access.vh("[].y").get(segment, 0L, 3L))
+            () -> assertEquals(42, (int) varHandle(access, "[].x").get(segment, 0L, 3L)),
+            () -> assertEquals(17, (int) varHandle(access, "[].y").get(segment, 0L, 3L))
         );
       }
     }
@@ -550,14 +531,14 @@ public class MemoryAccessTest {
       record Point(Coordinate x, Coordinate y) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
       try (var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 10);
         access.setAtIndex(segment, 7, new Point(new Coordinate(-5), new Coordinate(13)));
 
         assertAll(
-            () -> assertEquals(-5, (int) access.vh("[].x.value").get(segment, 0L, 7L)),
-            () -> assertEquals(13, (int) access.vh("[].y.value").get(segment, 0L, 7L))
+            () -> assertEquals(-5, (int) varHandle(access, "[].x.value").get(segment, 0L, 7L)),
+            () -> assertEquals(13, (int) varHandle(access, "[].y.value").get(segment, 0L, 7L))
         );
       }
     }
@@ -566,7 +547,7 @@ public class MemoryAccessTest {
     public void setAtIndexWrongAlignment() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
       try (var arena = Arena.ofConfined()) {
         var segment = arena.allocate(10);
         var shiftedSegment = segment.asSlice(1L);
@@ -581,11 +562,13 @@ public class MemoryAccessTest {
     public void streamOfPoints() {
       record Point(int x, int y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
+      var arrayX = varHandle(access, "[].x");
+
       try(var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 1_000);
         for(var i = 0L; i < 1_000L; i++) {
-          access.vh("[].x").set(segment, 0L, i, 42);
+          arrayX.set(segment, 0L, i, 42);
         }
 
         var points = access.stream(segment);
@@ -597,11 +580,13 @@ public class MemoryAccessTest {
     public void streamOfValues() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
+      var arrayValue = varHandle(access, "[].value");
+
       try(var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 1_000);
         for(var i = 0L; i < 1_000L; i++) {
-          access.vh("[].value").set(segment, 0L, i, 42);
+          arrayValue.set(segment, 0L, i, 42);
         }
 
         var values = access.stream(segment);
@@ -613,7 +598,7 @@ public class MemoryAccessTest {
     public void streamWrongAlignment() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
       try (var arena = Arena.ofConfined()) {
         var segment = arena.allocate(10);
         var shiftedSegment = segment.asSlice(1L);
@@ -629,12 +614,15 @@ public class MemoryAccessTest {
       record Point(int x, int y) {
       }
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
+      var arrayX = varHandle(access, "[].x");
+      var arrayY = varHandle(access, "[].y");
+
       try (var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 1_000);
         for (var i = 0L; i < 1_000L; i++) {
-          access.vh("[].x").set(segment, 0L, i, (int) i);
-          access.vh("[].y").set(segment, 0L, i, (int) -i);
+          arrayX.set(segment, 0L, i, (int) i);
+          arrayY.set(segment, 0L, i, (int) -i);
         }
 
         var points = access.list(segment);
@@ -649,7 +637,10 @@ public class MemoryAccessTest {
     public void listOfPointsSet() {
       record Point(int x, int y) {}
 
-      var access = MemoryAccess.reflect(lookup(), Point.class);
+      var access = reflect(lookup(), Point.class);
+      var arrayX = varHandle(access, "[].x");
+      var arrayY = varHandle(access, "[].y");
+
       try (var arena = Arena.ofConfined()) {
         var segment = access.newArray(arena, 1_000);
         var points = access.list(segment);
@@ -658,8 +649,8 @@ public class MemoryAccessTest {
         }
 
         for (var i = 0L; i < 1_000L; i++) {
-          assertEquals((int) i, (int) access.vh("[].x").get(segment, 0L, i));
-          assertEquals((int) i, (int) access.vh("[].y").get(segment, 0L, i));
+          assertEquals((int) i, (int) arrayX.get(segment, 0L, i));
+          assertEquals((int) i, (int) arrayY.get(segment, 0L, i));
         }
       }
     }
@@ -668,7 +659,7 @@ public class MemoryAccessTest {
     public void listWrongAlignment() {
       record Value(int value) {}
 
-      var access = MemoryAccess.reflect(lookup(), Value.class);
+      var access = reflect(lookup(), Value.class);
       try (var arena = Arena.ofConfined()) {
         var segment = arena.allocate(10);
         var shiftedSegment = segment.asSlice(1L);

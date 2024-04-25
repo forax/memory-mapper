@@ -9,7 +9,6 @@ import java.lang.foreign.StructLayout;
 import java.lang.foreign.UnionLayout;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
@@ -37,12 +36,9 @@ import static java.lang.foreign.ValueLayout.JAVA_INT;
 import static java.lang.foreign.ValueLayout.JAVA_LONG;
 import static java.lang.foreign.ValueLayout.JAVA_SHORT;
 import static java.lang.foreign.MemoryLayout.PathElement;
-import static java.lang.invoke.MethodHandles.constant;
-import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodHandles.empty;
 import static java.lang.invoke.MethodHandles.filterArguments;
 import static java.lang.invoke.MethodHandles.foldArguments;
-import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.permuteArguments;
@@ -241,7 +237,7 @@ public final class MemoryAccessFactory {
         .toList();
   }
 
-  private static long offset(MemoryLayout layout, String path, Function<? super String, ? extends List<? extends Path>> pathFunction) {
+  static long byteOffset(MemoryLayout layout, String path, Function<? super String, ? extends List<? extends Path>> pathFunction) {
     var paths = requireNonNull(pathFunction.apply(path), "pathFunction return value is null");
     var pathElements = paths.stream()
         .map(MemoryAccessFactory::toPathElement)
@@ -249,7 +245,7 @@ public final class MemoryAccessFactory {
     return layout.byteOffset(pathElements);
   }
 
-  private static VarHandle varHandle(MemoryLayout layout, String path, Function<? super String, ? extends List<? extends Path>> pathFunction) {
+  static VarHandle varHandle(MemoryLayout layout, String path, Function<? super String, ? extends List<? extends Path>> pathFunction) {
     var paths = requireNonNull(pathFunction.apply(path), "pathFunction return value is null");
     VarHandle varHandle;
     if (paths.getFirst() instanceof Path.ArrayPath) {
@@ -258,65 +254,6 @@ public final class MemoryAccessFactory {
       varHandle = layout.varHandle(paths.stream().map(MemoryAccessFactory::toPathElement).toArray(PathElement[]::new));
     }
     return varHandle.withInvokeExactBehavior();
-  }
-
-  private static final class Cache extends MutableCallSite {
-    private static final MethodHandle OFFSET_FALLBACK, VARHANDLE_FALLBACK, TEST;
-    private static final MethodType BYTE_OFFSET_TYPE, VARHANDLE_TYPE;
-    static {
-      BYTE_OFFSET_TYPE = methodType(long.class, String.class);
-      VARHANDLE_TYPE = methodType(VarHandle.class, String.class);
-      var lookup = MethodHandles.lookup();
-      try {
-        var fallback = lookup.findVirtual(Cache.class, "fallback", methodType(Object.class, String.class));
-        OFFSET_FALLBACK = fallback.asType(methodType(long.class, Cache.class, String.class));
-        VARHANDLE_FALLBACK = fallback.asType(methodType(VarHandle.class, Cache.class, String.class));
-        TEST = lookup.findStatic(Cache.class, "test", methodType(boolean.class, String.class, String.class));
-      } catch (NoSuchMethodException | IllegalAccessException e) {
-        throw new AssertionError(e);
-      }
-    }
-
-    private static boolean test(String s1, String s2) {
-      return s1 == s2;
-    }
-
-    private final MethodHandle fallback;
-    private final Function<String, Object> computeFunction;
-
-    private Cache(MethodType type, MethodHandle fallback, Function<String, Object> computeFunction) {
-      super(type);
-      this.fallback = fallback;
-      this.computeFunction = computeFunction;
-      setTarget(fallback.bindTo(this));
-    }
-
-    private static void checkInterned(String path) {
-      if (path != path.intern()) {
-        throw new IllegalArgumentException("path is not an interned string");
-      }
-    }
-
-    private Object fallback(String path) {
-      checkInterned(path);
-      var constantValue = computeFunction.apply(path);
-      var constantType = type().returnType();
-      var guard = guardWithTest(
-          TEST.bindTo(path),
-          dropArguments(constant(constantType, constantValue), 0, String.class),
-          new Cache(type(), fallback, computeFunction).dynamicInvoker());
-      setTarget(guard);
-
-      return constantValue;
-    }
-  }
-
-  private static MethodHandle offsetCache(Function<String, Object> computeFunction) {
-    return new Cache(Cache.BYTE_OFFSET_TYPE, Cache.OFFSET_FALLBACK, computeFunction).dynamicInvoker();
-  }
-
-  private static MethodHandle varHandleCache(Function<String, Object> computeFunction) {
-    return new Cache(Cache.VARHANDLE_TYPE, Cache.VARHANDLE_FALLBACK, computeFunction).dynamicInvoker();
   }
 
   private static MethodHandle findCanonicalConstructor(Lookup lookup, RecordComponent[] components, Class<?> recordType) {
@@ -404,7 +341,7 @@ public final class MemoryAccessFactory {
     return result;
   }
 
-  private static final class Lazy extends MutableCallSite {
+  private static final class StructAccess extends MutableCallSite {
     private static final MethodHandle INIT_GETTER, INIT_SETTER;
     private static final MethodType INIT_GETTER_TYPE, INIT_SETTER_TYPE;
     static {
@@ -412,10 +349,10 @@ public final class MemoryAccessFactory {
       try {
         var initReaderType = methodType(Object.class, MemorySegment.class);
         INIT_GETTER_TYPE = initReaderType;
-        INIT_GETTER = lookup.findVirtual(Lazy.class, "initGetter", initReaderType);
+        INIT_GETTER = lookup.findVirtual(StructAccess.class, "initGetter", initReaderType);
         var initWriterType = methodType(void.class, MemorySegment.class, Object.class);
         INIT_SETTER_TYPE = initWriterType;
-        INIT_SETTER = lookup.findVirtual(Lazy.class, "initSetter", initWriterType);
+        INIT_SETTER = lookup.findVirtual(StructAccess.class, "initSetter", initWriterType);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new AssertionError(e);
       }
@@ -425,7 +362,7 @@ public final class MemoryAccessFactory {
     private final Class<?> recordType;
     private final MemoryLayout layout;
 
-    Lazy(Lookup lookup, Class<?> recordType, MemoryLayout layout, MethodHandle init, MethodType type) {
+    StructAccess(Lookup lookup, Class<?> recordType, MemoryLayout layout, MethodHandle init, MethodType type) {
       super(type);
       this.lookup = lookup;
       this.recordType = recordType;
@@ -452,12 +389,12 @@ public final class MemoryAccessFactory {
     }
   }
 
-  private static MethodHandle lazyGetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
-    return new Lazy(lookup, recordType, layout, Lazy.INIT_GETTER, Lazy.INIT_GETTER_TYPE).dynamicInvoker();
+  private static MethodHandle lazyStructGetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
+    return new StructAccess(lookup, recordType, layout, StructAccess.INIT_GETTER, StructAccess.INIT_GETTER_TYPE).dynamicInvoker();
   }
 
-  private static MethodHandle lazySetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
-    return new Lazy(lookup, recordType, layout, Lazy.INIT_SETTER, Lazy.INIT_SETTER_TYPE).dynamicInvoker();
+  private static MethodHandle lazyStructSetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
+    return new StructAccess(lookup, recordType, layout, StructAccess.INIT_SETTER, StructAccess.INIT_SETTER_TYPE).dynamicInvoker();
   }
 
   private final static class MappingSpliterator<T> implements Spliterator<T> {
@@ -502,8 +439,7 @@ public final class MemoryAccessFactory {
   }
 
   record MemoryAccessImpl<T>(MemoryLayout layout,
-                             MethodHandle offsetMH,
-                             MethodHandle varHandleMH,
+                             Function<? super String,? extends List<? extends Path>> pathFunction,
                              MethodHandle getterMH,
                              MethodHandle setterMH)
       implements MemoryAccess<T> {
@@ -532,26 +468,6 @@ public final class MemoryAccessFactory {
     public MemorySegment newArray(Arena arena, long size) {
       requireNonNull(arena, "arena is null");
       return arena.allocate(layout, size);
-    }
-
-    @Override
-    public long byteOffset(String path) {
-      requireNonNull(path, "path is null");
-      try {
-        return (long) offsetMH.invokeExact(path);
-      } catch (Throwable e) {
-        throw rethrow(e);
-      }
-    }
-
-    @Override
-    public VarHandle vh(String path) {
-      requireNonNull(path, "path is null");
-      try {
-        return (VarHandle) varHandleMH.invokeExact(path);
-      } catch (Throwable e) {
-        throw rethrow(e);
-      }
     }
 
     @Override
@@ -654,6 +570,7 @@ public final class MemoryAccessFactory {
     }
   }
 
+
   /**
    * Create a memory access object using the record type as definition.
    * <p>
@@ -684,10 +601,8 @@ public final class MemoryAccessFactory {
       throw new IllegalArgumentException(recordType.getName() + " is not a record");
     }
     var layout = requireNonNull(layoutFunction.apply(recordType), "layoutFunction return value is null");
-    var offsetMH = offsetCache(path -> offset(layout, path, pathFunction));
-    var varHandleMH = varHandleCache(path -> varHandle(layout, path, pathFunction));
-    var getterMH = lazyGetter(lookup, recordType, layout);
-    var setterMH = lazySetter(lookup, recordType, layout);
-    return new MemoryAccessImpl<>(layout, offsetMH, varHandleMH, getterMH, setterMH);
+    var structGetterMH = lazyStructGetter(lookup, recordType, layout);
+    var structSetterMH = lazyStructSetter(lookup, recordType, layout);
+    return new MemoryAccessImpl<>(layout, pathFunction, structGetterMH, structSetterMH);
   }
 }

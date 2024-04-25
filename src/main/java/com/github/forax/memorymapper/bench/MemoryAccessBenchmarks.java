@@ -18,15 +18,7 @@ import java.lang.invoke.VarHandle;
 import java.util.concurrent.TimeUnit;
 
 import static java.lang.invoke.MethodHandles.lookup;
-
-// Benchmark                                       Mode  Cnt     Score   Error  Units
-// MemoryAccessBenchmarks.access_array_x_y         avgt    5  2218.594 ± 9.514  ns/op
-// MemoryAccessBenchmarks.access_point_x_y         avgt    5     1.841 ± 0.011  ns/op
-// MemoryAccessBenchmarks.access_record_array_x_y  avgt    5   288.230 ± 0.794  ns/op
-// MemoryAccessBenchmarks.access_record_point_x_y  avgt    5     1.374 ± 0.078  ns/op
-// MemoryAccessBenchmarks.varHandle_array_x_y      avgt    5   290.612 ± 3.688  ns/op
-// MemoryAccessBenchmarks.varHandle_point_x_y      avgt    5     1.260 ± 0.030  ns/op
-
+/*
 // $JAVA_HOME/bin/java -jar target/benchmarks.jar -prof dtraceasm
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
@@ -38,10 +30,12 @@ public class MemoryAccessBenchmarks {
   record Point(int x, int y) {}
 
   private static final MemoryAccess<Point> POINT_ACCESS = MemoryAccess.reflect(lookup(), Point.class);
-  private static final VarHandle ARRAY_ACCESS_X = POINT_ACCESS.vh("[].x");
-  private static final VarHandle ARRAY_ACCESS_Y = POINT_ACCESS.vh("[].y");
+  private static final VarHandle POINT_ACCESS_X = MemoryAccess.varHandle(POINT_ACCESS, ".x");
+  private static final VarHandle POINT_ACCESS_Y = MemoryAccess.varHandle(POINT_ACCESS, ".y");
+  private static final VarHandle ARRAY_ACCESS_X = MemoryAccess.varHandle(POINT_ACCESS, "[].x");
+  private static final VarHandle ARRAY_ACCESS_Y = MemoryAccess.varHandle(POINT_ACCESS, "[].y");
 
-  private static final MemoryLayout POINT_LAYOUT = POINT_ACCESS.layout();
+  private static final MemoryLayout POINT_LAYOUT = MemoryAccess.layout(POINT_ACCESS);
   private static final VarHandle POINT_X = POINT_LAYOUT.varHandle(MemoryLayout.PathElement.groupElement("x"));
   private static final VarHandle POINT_Y = POINT_LAYOUT.varHandle(MemoryLayout.PathElement.groupElement("y"));
   private static final VarHandle ARRAY_POINT_X = POINT_LAYOUT.arrayElementVarHandle(MemoryLayout.PathElement.groupElement("x"));
@@ -51,28 +45,28 @@ public class MemoryAccessBenchmarks {
 
   private final MemorySegment arraySegment = POINT_ACCESS.newArray(Arena.ofAuto(), 1_000);
 
-  /*
+
   @Benchmark
-  public int varHandle_point_x_y() {
+  public int item_varHandle() {
     var x = (int) POINT_X.get(pointSegment, 0L);
     var y = (int) POINT_Y.get(pointSegment, 0L);
     return x + y;
   }
   @Benchmark
-  public int access_point_x_y() {
-    var x = (int) POINT_ACCESS.vh(".x").get(pointSegment, 0L);
-    var y = (int) POINT_ACCESS.vh(".y").get(pointSegment, 0L);
+  public int item_varHandle_access() {
+    var x = (int) POINT_ACCESS_X.get(pointSegment, 0L);
+    var y = (int) POINT_ACCESS_Y.get(pointSegment, 0L);
     return x + y;
   }
   @Benchmark
-  public int access_record_point_x_y() {
+  public int item_record_access() {
     var point = POINT_ACCESS.get(pointSegment);
     return point.x + point.y;
-  }*/
+  }
 
-  /*
+
   @Benchmark
-  public int varHandle_array_x_y() {
+  public int array_varHandle() {
     var sum = 0;
     for(var i = 0L; i < 1_000L; i++) {
       var x = (int) ARRAY_POINT_X.get(arraySegment, 0L, i);
@@ -83,22 +77,9 @@ public class MemoryAccessBenchmarks {
   }
 
   @Benchmark
-  public int varHandle_array_x_y_intIndex() {
-    var sum = 0;
-    for(var i = 0; i < 1_000; i++) {
-      var x = (int) ARRAY_POINT_X.get(arraySegment, 0L, (long) i);
-      var y = (int) ARRAY_POINT_Y.get(arraySegment, 0L, (long) i);
-      sum += x + y;
-    }
-    return sum;
-  }
-
-  @Benchmark
-  public int access_array_x_y() {
+  public int array_varHandle_access() {
     var sum = 0;
     for(var i = 0L; i < 1_000L; i++) {
-      //var x = (int) POINT_ACCESS.vh("[].x").get(arraySegment, 0L, i);
-      //var y = (int) POINT_ACCESS.vh("[].y").get(arraySegment, 0L, i);
       var x = (int) ARRAY_ACCESS_X.get(arraySegment, 0L, i);
       var y = (int) ARRAY_ACCESS_Y.get(arraySegment, 0L, i);
       sum += x + y;
@@ -107,18 +88,7 @@ public class MemoryAccessBenchmarks {
   }
 
   @Benchmark
-  public int access_array_x_y_intIndex() {
-    var sum = 0;
-    for(var i = 0; i < 1_000; i++) {
-      var x = (int) POINT_ACCESS.vh("[].x").get(arraySegment, 0L, (long) i);
-      var y = (int) POINT_ACCESS.vh("[].y").get(arraySegment, 0L, (long) i);
-      sum += x + y;
-    }
-    return sum;
-  }
-
-  @Benchmark
-  public int access_record_array_x_y() {
+  public int array_record_access() {
     var sum = 0;
     for(var i = 0L; i < 1_000L; i++) {
       var point = POINT_ACCESS.getAtIndex(arraySegment, i);
@@ -126,14 +96,5 @@ public class MemoryAccessBenchmarks {
     }
     return sum;
   }
-
-  @Benchmark
-  public int access_record_array_x_y_withIndex() {
-    var sum = 0;
-    for(var i = 0; i < 1_000; i++) {
-      var point = POINT_ACCESS.getAtIndex(arraySegment, i);
-      sum += point.x + point.y;
-    }
-    return sum;
-  }*/
 }
+*/

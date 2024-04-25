@@ -29,10 +29,10 @@ import static java.lang.invoke.MethodType.methodType;
 // ReproducerBenchmarks.control            avgt    5  1.250 ± 0.024  ns/op
 // ReproducerBenchmarks.gwt2_methodhandle  avgt    5  1.852 ± 0.024  ns/op
 // ReproducerBenchmarks.gwt_methodhandle   avgt    5  1.259 ± 0.055  ns/op
-
+/*
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
-@Fork(value = 1)
+@Fork(value = 1, jvmArgs = {"-XX:+UnlockDiagnosticVMOptions", "-XX:+PrintCompilation", "-XX:+PrintInlining"})
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @State(Scope.Benchmark)
@@ -87,14 +87,14 @@ public class ReproducerBenchmarks {
 
   private final MemorySegment segment = Arena.ofAuto().allocate(LAYOUT);
 
-  @Benchmark
+  //@Benchmark
   public int control() {
     var x = (int) HANDLE_X.get(segment, 0L);
     var y = (int) HANDLE_Y.get(segment, 0L);
     return x + y;
   }
 
-  @Benchmark
+  //@Benchmark
   public int gwt_methodhandle() throws Throwable {
     var x = (int) ((VarHandle) MH_X.invokeExact("x")).get(segment, 0L);
     var y = (int) ((VarHandle) MH_Y.invokeExact("y")).get(segment, 0L);
@@ -107,4 +107,4 @@ public class ReproducerBenchmarks {
     var y = (int) ((VarHandle) MH.invokeExact("y")).get(segment, 0L);
     return x + y;
   }
-}
+}*/
