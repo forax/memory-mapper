@@ -87,12 +87,10 @@ an array respectively as a `java.util.List` (limited at 2G elements) and a `java
 private static final MemoryAccess<Point> POINT =
     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
   ...
-  try(Arena arena = Arena.ofConfined()) {
-    MemorySegment s = POINT.newArray(arena);
-    List<Point> l = POINT.list(segment);
-    l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
-    var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
-  }
+  MemorySegment s = POINT.newArray(arena.ofAuto());
+  List<Point> l = POINT.list(segment);
+  l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
+  var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
 ```
 
 ### Convenient way to create a VarHandle for an element field
