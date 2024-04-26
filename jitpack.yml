@@ -1,6 +1,6 @@
 before_install:
   - sdk update
-  - sdk install java 22
+  - sdk install java 22-zulu
   - sdk default java
   - sdk install maven
   - export JAVA_HOME=${SDKMAN_DIR}/candidates/java/current
