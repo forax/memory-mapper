@@ -149,10 +149,10 @@ The artifacts are stored on jitpack.
 With Maven, add a new repository jitpack.io 
 ```pom
 <repositories>
-	<repository>
+    <repository>
 	    <id>jitpack.io</id>
-	    <url>https://jitpack.io</url>
-	</repository>
+        <url>https://jitpack.io</url>
+    </repository>
 </repositories>
 ```
 
