@@ -56,6 +56,10 @@ public final class MemoryAccessFactory {
   static final long DEFAULT_PADDING = -1;
   static final String DEFAULT_NAME = "";
 
+  private MemoryAccessFactory() {
+    throw new AssertionError();
+  }
+
   @Layout
   private record AnnotationDefault(@LayoutElement Void element) {
     private static final Layout LAYOUT = AnnotationDefault.class.getAnnotation(Layout.class);
@@ -203,6 +207,10 @@ public final class MemoryAccessFactory {
      * @param member the name of the member in the memory layout.
      */
     record FieldPath(String member) implements Path {
+      /**
+       * Creates a field path to a specific field.
+       * @param member the field name
+       */
       public FieldPath {
         requireNonNull(member);
       }

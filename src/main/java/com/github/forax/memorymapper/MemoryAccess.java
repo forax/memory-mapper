@@ -247,9 +247,10 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
   void set(MemorySegment segment, T element);
 
   /**
-   * Sets the value from the segment at an index and creates the corresponding record.
+   * Sets the values of the record to the segment at an index.
    * @param segment a memory segment.
    * @param index an index.
+   * @param element a record
    * @throws IndexOutOfBoundsException if the index is out of bounds.
    * @throws IllegalArgumentException if the segment is not aligned to the layout alignment.
    * @throws UnsupportedOperationException if the layout does not describe a struct layout

@@ -21,8 +21,8 @@ public @interface Layout {
    * Kind of layout, struct or union.
    */
   enum Kind {
-    /* struct layout */ STRUCT,
-    /* union layout */  UNION
+    /** struct layout */ STRUCT,
+    /** union layout */  UNION
   }
 
   /**
