@@ -148,21 +148,21 @@ The artifacts are stored on jitpack.
 
 With Maven, add a new repository jitpack.io 
 ```pom
-	<repositories>
-		<repository>
-		    <id>jitpack.io</id>
-		    <url>https://jitpack.io</url>
-		</repository>
-	</repositories>
+<repositories>
+	<repository>
+	    <id>jitpack.io</id>
+	    <url>https://jitpack.io</url>
+	</repository>
+</repositories>
 ```
 
 then you can add the dependency to the library
 ```pom
-	<dependency>
-	    <groupId>com.github.forax.memorymapper</groupId>
-	    <artifactId>memory-mapper</artifactId>
-	    <version>1.0</version>
-	</dependency>
+<dependency>
+    <groupId>com.github.forax.memorymapper</groupId>
+    <artifactId>memory-mapper</artifactId>
+    <version>1.0</version>
+</dependency>
 ```
 
 
