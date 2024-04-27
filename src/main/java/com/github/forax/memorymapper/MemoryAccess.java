@@ -266,12 +266,12 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    * @return a new memory access.
    * @param <T> the type of the record type.
    *
-   * @see MemoryAccessFactory#create(Lookup, Class, Function, Function)
+   * @see MemoryAccessFactory#create(Lookup, Class, Function)
    */
   static <T extends Record> MemoryAccess<T> reflect(Lookup lookup, Class<T> recordType) {
     requireNonNull(lookup, "lookup is null");
     requireNonNull(recordType, "recordType is null");
-    return MemoryAccessFactory.create(lookup, recordType, MemoryAccessFactory::defaultLayout, MemoryAccessFactory::defaultPath);
+    return MemoryAccessFactory.create(lookup, recordType, MemoryAccessFactory::defaultLayout);
   }
 
   /**
@@ -298,7 +298,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    */
   static VarHandle varHandle(MemoryAccess<?> memoryAccess, String path) {
     var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
-    return MemoryAccessFactory.varHandle(impl.layout(), path, impl.pathFunction());
+    return MemoryAccessFactory.varHandle(impl.layout(), path, MemoryAccessFactory::defaultPath);
   }
 
   /**
@@ -314,7 +314,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    */
   static long byteOffset(MemoryAccess<?> memoryAccess, String path) {
     var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
-    return MemoryAccessFactory.byteOffset(impl.layout(), path, impl.pathFunction());
+    return MemoryAccessFactory.byteOffset(impl.layout(), path, MemoryAccessFactory::defaultPath);
   }
 }
 

@@ -49,7 +49,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * A factory to create fined tuned memory access.
  *
- * @see #create(Lookup, Class, Function, Function)
+ * @see #create(Lookup, Class, Function)
  */
 public final class MemoryAccessFactory {
   static final long DEFAULT_ALIGNMENT = -1;
@@ -447,7 +447,6 @@ public final class MemoryAccessFactory {
   }
 
   record MemoryAccessImpl<T>(MemoryLayout layout,
-                             Function<? super String,? extends List<? extends Path>> pathFunction,
                              MethodHandle getterMH,
                              MethodHandle setterMH)
       implements MemoryAccess<T> {
@@ -589,7 +588,6 @@ public final class MemoryAccessFactory {
    * @param lookup an access checking object.
    * @param recordType a type of record.
    * @param layoutFunction a function that creates a memory layout from a class.
-   * @param pathFunction a function that creates a path from a string.
    * @return a new memory access.
    * @throws IllegalArgumentException if the record type is not a record.
    * @param <T> the type of the record.
@@ -599,18 +597,16 @@ public final class MemoryAccessFactory {
    */
   public static <T extends Record> MemoryAccess<T> create(Lookup lookup,
                                               Class<T> recordType,
-                                              Function<? super Class<?>, ? extends MemoryLayout> layoutFunction,
-                                              Function<? super String, ? extends List<? extends Path>> pathFunction) {
+                                              Function<? super Class<?>, ? extends MemoryLayout> layoutFunction) {
     requireNonNull(lookup, "lookup is null");
     requireNonNull(recordType, "recordType is null");
-    requireNonNull(pathFunction, "layoutFunction is null");
-    requireNonNull(pathFunction, "pathFunction is null");
+    requireNonNull(layoutFunction, "layoutFunction is null");
     if (!recordType.isRecord()) {
       throw new IllegalArgumentException(recordType.getName() + " is not a record");
     }
     var layout = requireNonNull(layoutFunction.apply(recordType), "layoutFunction return value is null");
     var structGetterMH = lazyStructGetter(lookup, recordType, layout);
     var structSetterMH = lazyStructSetter(lookup, recordType, layout);
-    return new MemoryAccessImpl<>(layout, pathFunction, structGetterMH, structSetterMH);
+    return new MemoryAccessImpl<>(layout, structGetterMH, structSetterMH);
   }
 }
