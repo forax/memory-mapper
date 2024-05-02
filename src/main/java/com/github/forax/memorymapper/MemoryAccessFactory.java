@@ -1,5 +1,6 @@
 package com.github.forax.memorymapper;
 
+import java.lang.annotation.ElementType;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
@@ -103,6 +104,11 @@ public final class MemoryAccessFactory {
     });
   }
 
+  static long computePadding(long byteAlignment, long byteUsed) {
+    var shift = byteUsed % byteAlignment;
+    return shift != 0 ? byteAlignment - shift : DEFAULT_PADDING ;
+  }
+
   private static MemoryLayout record(Class<?> recordType, long byteUsed, boolean topLevel) {
     var layout = layoutAnnotation(recordType);
     var isStruct = layout.kind() == Layout.Kind.STRUCT;
@@ -122,8 +128,7 @@ public final class MemoryAccessFactory {
       if (padding == DEFAULT_PADDING & autoPadding) {
         var byteAlignment = element.byteAlignment();
         maxAlignment = Math.max(maxAlignment, byteAlignment);
-        var shift = byteUsed % byteAlignment;
-        padding = shift != 0 ? byteAlignment - shift : DEFAULT_PADDING ;
+        padding = computePadding(byteAlignment, byteUsed);
       }
       if (padding != DEFAULT_PADDING) {
         memberLayouts.add(MemoryLayout.paddingLayout(padding));
@@ -143,8 +148,7 @@ public final class MemoryAccessFactory {
     // add end padding so the layout can be used as an array element
     long padding = layout.endPadding();
     if (padding == DEFAULT_PADDING & autoPadding & topLevel) {
-      var shift = byteUsed % maxAlignment;
-      padding = shift != 0 ? maxAlignment - shift : DEFAULT_PADDING;
+      padding = computePadding(maxAlignment, byteUsed);
     }
     if (padding != DEFAULT_PADDING) {
       memberLayouts.add(MemoryLayout.paddingLayout(padding));
@@ -577,6 +581,27 @@ public final class MemoryAccessFactory {
     }
   }
 
+  private static final class PrimitiveMemoryAccesses {
+    private static final MethodType GETTER_TYPE = methodType(Object.class, MemorySegment.class);
+    private static final MethodType SETTER_TYPE = methodType(void.class, MemorySegment.class, Object.class);
+
+    private static <T> MemoryAccess<T> memoryAccess(ValueLayout layout) {
+      var varHandle = layout.varHandle().withInvokeExactBehavior();
+      return new MemoryAccessImpl<>(layout,
+          insertArguments(varHandle.toMethodHandle(VarHandle.AccessMode.GET), 1, 0L).asType(GETTER_TYPE),
+          insertArguments(varHandle.toMethodHandle(VarHandle.AccessMode.SET), 1, 0L).asType(SETTER_TYPE));
+    }
+
+    private static final MemoryAccess<Boolean> BOOLEAN = memoryAccess(JAVA_BOOLEAN);
+    private static final MemoryAccess<Byte> BYTE = memoryAccess(JAVA_BYTE);
+    private static final MemoryAccess<Boolean> CHAR = memoryAccess(JAVA_CHAR);
+    private static final MemoryAccess<Boolean> SHORT = memoryAccess(JAVA_SHORT);
+    private static final MemoryAccess<Boolean> INT = memoryAccess(JAVA_INT);
+    private static final MemoryAccess<Boolean> LONG = memoryAccess(JAVA_LONG);
+    private static final MemoryAccess<Boolean> FLOAT = memoryAccess(JAVA_FLOAT);
+    private static final MemoryAccess<Boolean> DOUBLE = memoryAccess(JAVA_DOUBLE);
+  }
+
 
   /**
    * Create a memory access object using the record type as definition.
@@ -608,5 +633,24 @@ public final class MemoryAccessFactory {
     var structGetterMH = lazyStructGetter(lookup, recordType, layout);
     var structSetterMH = lazyStructSetter(lookup, recordType, layout);
     return new MemoryAccessImpl<>(layout, structGetterMH, structSetterMH);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> MemoryAccess<T> fromPrimitive(Class<T> primitiveType) {
+    requireNonNull(primitiveType);
+    if (!primitiveType.isPrimitive() || primitiveType == void.class) {
+      throw new IllegalArgumentException(primitiveType + " is not a primitive type");
+    }
+    return (MemoryAccess<T>) switch (primitiveType.getName()) {
+      case "boolean" -> PrimitiveMemoryAccesses.BOOLEAN;
+      case "byte" -> PrimitiveMemoryAccesses.BYTE;
+      case "char" -> PrimitiveMemoryAccesses.CHAR;
+      case "short" -> PrimitiveMemoryAccesses.SHORT;
+      case "int" -> PrimitiveMemoryAccesses.INT;
+      case "long" -> PrimitiveMemoryAccesses.LONG;
+      case "float" -> PrimitiveMemoryAccesses.FLOAT;
+      case "double" -> PrimitiveMemoryAccesses.DOUBLE;
+      default -> throw new AssertionError();
+    };
   }
 }

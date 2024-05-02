@@ -274,6 +274,11 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
     return MemoryAccessFactory.create(lookup, recordType, MemoryAccessFactory::defaultLayout);
   }
 
+  static <T> MemoryAccess<T> fromPrimitive(Class<T> primitiveType) {
+    requireNonNull(primitiveType, "primitiveType is null");
+    return MemoryAccessFactory.fromPrimitive(primitiveType);
+  }
+
   /**
    * Returns the computed memory layout of a memory access.
    * @param memoryAccess the memory access
