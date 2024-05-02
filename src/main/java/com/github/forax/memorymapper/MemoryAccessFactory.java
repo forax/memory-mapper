@@ -604,8 +604,8 @@ public final class MemoryAccessFactory {
   /**
    * Create a memory access object using the record type as definition.
    * <p>
-   * This method should only be used if you want to configure how the layout is created
-   * or change the syntax of the path. Otherwise, the method {@link MemoryAccess#reflect(Lookup, Class)}
+   * This method should only be used if you want to configure how the layout is created,
+   * otherwise, the method {@link MemoryAccess#reflect(Lookup, Class)}
    * should be used instead.
    *
    * @param lookup an access checking object.
@@ -616,7 +616,6 @@ public final class MemoryAccessFactory {
    * @param <T> the type of the record.
    *
    * @see #defaultLayout(Class)
-   * @see #defaultPath(String)
    */
   public static <T extends Record> MemoryAccess<T> create(Lookup lookup,
                                               Class<T> recordType,
