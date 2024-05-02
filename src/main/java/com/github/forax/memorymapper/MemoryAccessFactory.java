@@ -1,6 +1,5 @@
 package com.github.forax.memorymapper;
 
-import java.lang.annotation.ElementType;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
@@ -200,7 +199,7 @@ public final class MemoryAccessFactory {
   /**
    * Represent a path into the memory layout.
    */
-  public sealed interface Path {
+  private sealed interface Path {
     /**
      * An array access, represented by default by the string {@code []}.
      */
@@ -235,8 +234,7 @@ public final class MemoryAccessFactory {
    * @param path a string path.
    * @return a Path object corresponding to the string description.
    */
-  public static List<Path> defaultPath(String path) {
-    requireNonNull(path, "path is null");
+  private static List<Path> defaultPath(String path) {
     var matcher = PATH_PATTERN.matcher(path);
     return matcher
         .results()
@@ -249,16 +247,16 @@ public final class MemoryAccessFactory {
         .toList();
   }
 
-  static long byteOffset(MemoryLayout layout, String path, Function<? super String, ? extends List<? extends Path>> pathFunction) {
-    var paths = requireNonNull(pathFunction.apply(path), "pathFunction return value is null");
+  static long byteOffset(MemoryLayout layout, String path) {
+    var paths = defaultPath(path);
     var pathElements = paths.stream()
         .map(MemoryAccessFactory::toPathElement)
         .toArray(PathElement[]::new);
     return layout.byteOffset(pathElements);
   }
 
-  static VarHandle varHandle(MemoryLayout layout, String path, Function<? super String, ? extends List<? extends Path>> pathFunction) {
-    var paths = requireNonNull(pathFunction.apply(path), "pathFunction return value is null");
+  static VarHandle varHandle(MemoryLayout layout, String path) {
+    var paths = defaultPath(path);
     VarHandle varHandle;
     if (paths.getFirst() instanceof Path.ArrayPath) {
       varHandle = layout.arrayElementVarHandle(paths.stream().skip(1).map(MemoryAccessFactory::toPathElement).toArray(PathElement[]::new));

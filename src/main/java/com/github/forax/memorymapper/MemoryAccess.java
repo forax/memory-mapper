@@ -298,12 +298,10 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *             {@code .member} for member access. Those patterns can be composed by
    *             concatenating them.
    * @return a VarHandle able to access data using the path pattern.
-   *
-   * @see MemoryAccessFactory#defaultPath(String)
    */
   static VarHandle varHandle(MemoryAccess<?> memoryAccess, String path) {
     var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
-    return MemoryAccessFactory.varHandle(impl.layout(), path, MemoryAccessFactory::defaultPath);
+    return MemoryAccessFactory.varHandle(impl.layout(), path);
   }
 
   /**
@@ -314,12 +312,10 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    *             concatenating them.
    * @return the offset of the data from a path pattern.
    * @throws IllegalArgumentException if the path is not an interned string.
-   *
-   * @see MemoryAccessFactory#defaultPath(String)
    */
   static long byteOffset(MemoryAccess<?> memoryAccess, String path) {
     var impl = (MemoryAccessFactory.MemoryAccessImpl<?>) memoryAccess;
-    return MemoryAccessFactory.byteOffset(impl.layout(), path, MemoryAccessFactory::defaultPath);
+    return MemoryAccessFactory.byteOffset(impl.layout(), path);
   }
 }
 
