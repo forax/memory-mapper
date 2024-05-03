@@ -3,6 +3,8 @@ package com.github.forax.memorymapper;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.lang.foreign.Arena;
+import java.lang.foreign.SegmentAllocator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -160,6 +162,26 @@ public class MemoryCollectionsTest {
           () -> range(0, 100_000).forEach(i -> assertEquals(i, map.getOrDefault(i, -1), "" + i)),
           () -> range(0, 100_000).forEach(i -> assertTrue(map.containsKey(i), "" + i))
       );
+    }
+  }
+
+  @Nested
+  public class Allocator {
+    @Test
+    public void stackAllocation() {
+      try(var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(1_024);
+        var allocator = SegmentAllocator.prefixAllocator(segment);
+
+        record Point(int x, int y) {}
+        for(var i = 0; i < 10_000; i++) {
+          var list = MemoryCollections.newSpecializedList(allocator, Point.class);
+          for(var v = 0; v < 100; v++) {
+            list.add(new Point(v, v));
+          }
+          assertEquals(100, list.size());
+        }
+      }
     }
   }
 }
