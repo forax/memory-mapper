@@ -108,7 +108,7 @@ public final class MemoryAccessFactory {
     return shift != 0 ? byteAlignment - shift : DEFAULT_PADDING ;
   }
 
-  private static MemoryLayout record(Class<?> recordType, long byteUsed, boolean topLevel) {
+  private static MemoryLayout recordLayout(Class<?> recordType, long byteUsed, boolean topLevel) {
     var layout = layoutAnnotation(recordType);
     var isStruct = layout.kind() == Layout.Kind.STRUCT;
     var autoPadding = layout.autoPadding() & isStruct;
@@ -175,7 +175,7 @@ public final class MemoryAccessFactory {
       return MemoryLayout.sequenceLayout(0, element(type.getComponentType(), byteUsed));
     }
     if (type.isRecord()) {
-      return record(type, byteUsed, false);
+      return recordLayout(type, byteUsed, false);
     }
     throw new IllegalStateException("invalid type " + type.getName());
   }
@@ -193,7 +193,7 @@ public final class MemoryAccessFactory {
     if (!type.isRecord()) {
       throw new IllegalArgumentException(type.getName() + " is not a record");
     }
-    return record(type, 0,true);
+    return recordLayout(type, 0,true);
   }
 
   /**
@@ -405,6 +405,23 @@ public final class MemoryAccessFactory {
 
   private static MethodHandle lazyStructSetter(Lookup lookup, Class<?> recordType, MemoryLayout layout) {
     return new StructAccess(lookup, recordType, layout, StructAccess.INIT_SETTER, StructAccess.INIT_SETTER_TYPE).dynamicInvoker();
+  }
+
+  static <T> MemoryAccess<T> shaveEndPadding(MemoryAccess<T> memoryAccess) {
+    var impl = (MemoryAccessImpl<T>) memoryAccess;
+    var layout = impl.layout;
+    if (layout instanceof StructLayout structLayout) {
+      var memoryLayouts = structLayout.memberLayouts();
+      if (!memoryLayouts.isEmpty()) {
+        var last =  memoryLayouts.getLast();
+        if (last instanceof PaddingLayout) {
+          var shavedLayout = MemoryLayout.structLayout(
+              memoryLayouts.subList(0, memoryLayouts.size() - 1).toArray(MemoryLayout[]::new));
+          return new MemoryAccessImpl<>(shavedLayout, impl.getterMH, impl.setterMH);
+        }
+      }
+    }
+    return impl;
   }
 
   private final static class MappingSpliterator<T> implements Spliterator<T> {

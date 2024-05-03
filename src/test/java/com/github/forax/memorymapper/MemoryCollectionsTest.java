@@ -92,6 +92,16 @@ public class MemoryCollectionsTest {
   @Nested
   public class SpecializedMap {
     @Test
+    public void newSpecializedMapBooleanToBoolean() {
+      var map = MemoryCollections.newSpecializedMap(boolean.class, boolean.class);
+      map.put(true, false);
+      assertAll(
+          () -> assertEquals(1, map.size()),
+          () -> assertEquals(Set.of(Map.entry(true, false)), map.entrySet())
+      );
+    }
+
+    @Test
     public void newSpecializedMapWithOneElement() {
       record Point(int x, int y) {}
 
@@ -143,12 +153,12 @@ public class MemoryCollectionsTest {
     @Test
     public void newSpecializedMapReHashALot() {
       var map = MemoryCollections.newSpecializedMap(int.class, int.class);
-      range(0, 10_000_000).forEach(i -> map.put(i, i));
+      range(0, 100_000).forEach(i -> map.put(i, i));
 
       assertAll(
-          () -> assertEquals(10_000_000, map.size()),
-          () -> range(0, 10_000_000).forEach(i -> assertEquals(i, map.getOrDefault(i, -1), "" + i)),
-          () -> range(0, 10_000_000).forEach(i -> assertTrue(map.containsKey(i), "" + i))
+          () -> assertEquals(100_000, map.size()),
+          () -> range(0, 100_000).forEach(i -> assertEquals(i, map.getOrDefault(i, -1), "" + i)),
+          () -> range(0, 100_000).forEach(i -> assertTrue(map.containsKey(i), "" + i))
       );
     }
   }

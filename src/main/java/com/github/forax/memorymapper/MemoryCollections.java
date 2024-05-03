@@ -69,12 +69,19 @@ public final class MemoryCollections {
     }
   };
 
-  private static MemoryAccess<?> memoryAccess(Class<?> type) {
+  private static final ClassValue<MemoryAccess<?>> NO_END_PADDING_MEMORY_ACCESS_CACHE = new ClassValue<>() {
+    @Override
+    protected MemoryAccess<?> computeValue(Class<?> type) {
+      return MemoryAccessFactory.shaveEndPadding(MEMORY_ACCESS_CACHE.get(type));
+    }
+  };
+
+  private static MemoryAccess<?> memoryAccess(Class<?> type, boolean arrayAligned) {
     if (type.isPrimitive()) {
       return MemoryAccess.fromPrimitive(type);
     }
     if (type.isRecord()) {
-      return MEMORY_ACCESS_CACHE.get(type);
+      return (arrayAligned ? MEMORY_ACCESS_CACHE : NO_END_PADDING_MEMORY_ACCESS_CACHE).get(type);
     }
     throw new IllegalArgumentException(type.getName() + " is neither a primitive nor a record");
   }
@@ -99,7 +106,7 @@ public final class MemoryCollections {
   private static final ClassValue<MethodHandle> LIST_FACTORY = new ClassValue<>() {
     @Override
     protected MethodHandle computeValue(Class<?> type) {
-      var memoryAccess = memoryAccess(type);
+      var memoryAccess = memoryAccess(type, true);
       return specialize(LIST_TEMPLATE, methodType(List.class), true, memoryAccess);
     }
   };
@@ -258,11 +265,11 @@ public final class MemoryCollections {
   private static final ClassValue<ClassValue<MethodHandle>> MAP_FACTORY = new ClassValue<>() {
     @Override
     protected ClassValue<MethodHandle> computeValue(Class<?> keyType) {
-      var keyMemoryAccess = memoryAccess(keyType);
+      var keyMemoryAccess = memoryAccess(keyType, false);
       return new ClassValue<>() {
         @Override
         protected MethodHandle computeValue(Class<?> valueType) {
-          var valueMemoryAccess = memoryAccess(valueType);
+          var valueMemoryAccess = memoryAccess(valueType, false);
           var structLayout = structLayout(keyMemoryAccess, valueMemoryAccess);
           var classData = new MapClassData(structLayout, keyMemoryAccess, valueMemoryAccess);
           return specialize(MAP_TEMPLATE, methodType(Map.class), true, classData);
