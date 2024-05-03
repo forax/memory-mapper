@@ -477,9 +477,9 @@ public final class MemoryAccessFactory {
     }
 
     @Override
-    public MemorySegment newValue(Arena arena) {
-      requireNonNull(arena, "arena is null");
-      return arena.allocate(layout);
+    public MemorySegment newValue(SegmentAllocator allocator) {
+      requireNonNull(allocator, "allocator is null");
+      return allocator.allocate(layout);
     }
 
     @Override

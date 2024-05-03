@@ -19,8 +19,8 @@ import static java.util.Objects.requireNonNull;
  *   <li>Convenient methods
  *   <li>Methods that
  *     <ul>
- *       <li>allocate a segment, {@link #newValue(Arena)} and {@link #newValue(Arena, Object)}
- *       <li>allocate an array, {@link #newArray(Arena, long)}
+ *       <li>allocate a segment, {@link #newValue(SegmentAllocator)} and {@link #newValue(SegmentAllocator, Object)}
+ *       <li>allocate an array, {@link #newArray(SegmentAllocator, long)}
  *       <li>get/set a segment from/to a record, {@link #get(MemorySegment)} and {@link #set(MemorySegment, Object)}
  *       <li>get/set a segment at an index from/to a record, {@link #getAtIndex(MemorySegment, long)} and
  *           {@link #setAtIndex(MemorySegment, long, Object)}
@@ -162,12 +162,12 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
   /**
    * Allocates a new memory segment of the size of the layout.
    * All the bytes are initialized at 0.
-   * @param arena the arena used for the allocation.
+   * @param allocator the segment allocator used for the allocation.
    * @return a new memory segment of the size of the layout.
    *
    * @see Arena#allocate(MemoryLayout)
    */
-  MemorySegment newValue(Arena arena);
+  MemorySegment newValue(SegmentAllocator allocator);
 
   /**
    * Allocates a new memory segment of the size of the layout
