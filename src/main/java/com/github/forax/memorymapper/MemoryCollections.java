@@ -56,28 +56,28 @@ public final class MemoryCollections {
     ENTRY_SET_ITERATOR_TEMPLATE = template(EntrySetIterator.class);
   }
 
-  private static MemoryAccess<?> computeMemoryAccess(Class<?> type) {
-    if (type.isPrimitive()) {
-      return MemoryAccess.fromPrimitive(type);
-    }
-    if (type.isRecord()) {
+  private static final ClassValue<MemoryAccess<?>> MEMORY_ACCESS_CACHE = new ClassValue<>() {
+    @Override
+    protected MemoryAccess<?> computeValue(Class<?> type) {
       MethodHandles.Lookup typeLookup;
       try {
         typeLookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
       } catch (IllegalAccessException e) {
         throw (IllegalAccessError) new IllegalAccessError(type.getName() + " is not open").initCause(e);
       }
-      return MemoryAccess.reflect(typeLookup,  type.asSubclass(Record.class));
+      return MemoryAccess.reflect(typeLookup, type.asSubclass(Record.class));
+    }
+  };
+
+  private static MemoryAccess<?> memoryAccess(Class<?> type) {
+    if (type.isPrimitive()) {
+      return MemoryAccess.fromPrimitive(type);
+    }
+    if (type.isRecord()) {
+      return MEMORY_ACCESS_CACHE.get(type);
     }
     throw new IllegalArgumentException(type.getName() + " is neither a primitive nor a record");
   }
-
-  private static final ClassValue<MemoryAccess<?>> MEMORY_ACCESS_CACHE = new ClassValue<>() {
-    @Override
-    protected MemoryAccess<?> computeValue(Class<?> type) {
-      return computeMemoryAccess(type);
-    }
-  };
 
   private static MethodHandle specialize(byte[] template, MethodType constructorType, boolean initialize, Object classData) {
     MethodHandles.Lookup hiddenLookup;
@@ -99,7 +99,7 @@ public final class MemoryCollections {
   private static final ClassValue<MethodHandle> LIST_FACTORY = new ClassValue<>() {
     @Override
     protected MethodHandle computeValue(Class<?> type) {
-      var memoryAccess = MEMORY_ACCESS_CACHE.get(type);
+      var memoryAccess = memoryAccess(type);
       return specialize(LIST_TEMPLATE, methodType(List.class), true, memoryAccess);
     }
   };
@@ -258,13 +258,14 @@ public final class MemoryCollections {
   private static final ClassValue<ClassValue<MethodHandle>> MAP_FACTORY = new ClassValue<>() {
     @Override
     protected ClassValue<MethodHandle> computeValue(Class<?> keyType) {
-      var keyMemoryAccess = MEMORY_ACCESS_CACHE.get(keyType);
+      var keyMemoryAccess = memoryAccess(keyType);
       return new ClassValue<>() {
         @Override
         protected MethodHandle computeValue(Class<?> valueType) {
-          var valueMemoryAccess = MEMORY_ACCESS_CACHE.get(valueType);
+          var valueMemoryAccess = memoryAccess(valueType);
           var structLayout = structLayout(keyMemoryAccess, valueMemoryAccess);
-          return specialize(MAP_TEMPLATE, methodType(Map.class), true, new MapClassData(structLayout, keyMemoryAccess, valueMemoryAccess));
+          var classData = new MapClassData(structLayout, keyMemoryAccess, valueMemoryAccess);
+          return specialize(MAP_TEMPLATE, methodType(Map.class), true, classData);
         }
       };
     }
