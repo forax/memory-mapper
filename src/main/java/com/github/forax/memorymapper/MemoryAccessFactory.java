@@ -4,6 +4,7 @@ import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
 import java.lang.foreign.PaddingLayout;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.SequenceLayout;
 import java.lang.foreign.StructLayout;
 import java.lang.foreign.UnionLayout;
@@ -482,18 +483,18 @@ public final class MemoryAccessFactory {
     }
 
     @Override
-    public MemorySegment newValue(Arena arena, T element) {
-      requireNonNull(arena, "arena is null");
+    public MemorySegment newValue(SegmentAllocator allocator, T element) {
+      requireNonNull(allocator, "allocator is null");
       requireNonNull(element, "element is null");
-      var segment = arena.allocate(layout);
+      var segment = allocator.allocate(layout);
       set(segment, element);
       return segment;
     }
 
     @Override
-    public MemorySegment newArray(Arena arena, long size) {
-      requireNonNull(arena, "arena is null");
-      return arena.allocate(layout, size);
+    public MemorySegment newArray(SegmentAllocator allocator, long size) {
+      requireNonNull(allocator, "allocator is null");
+      return allocator.allocate(layout, size);
     }
 
     @Override

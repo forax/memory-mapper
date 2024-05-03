@@ -3,6 +3,7 @@ package com.github.forax.memorymapper;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.List;
@@ -171,7 +172,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
   /**
    * Allocates a new memory segment of the size of the layout
    * and initialized it with the values of the element.
-   * @param arena the arena used for the allocation.
+   * @param allocator the segment allocator used for the allocation.
    * @param element an element used for the initialization.
    * @return a new memory segment of the size of the layout
    *         initialized with the values of the element.
@@ -179,16 +180,16 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    * @see #newValue(Arena)
    * @see #set(MemorySegment, Object)
    */
-  MemorySegment newValue(Arena arena, T element);
+  MemorySegment newValue(SegmentAllocator allocator, T element);
 
   /**
    * Allocates a new memory segment able to contain {@code size} element.
-   * @param arena the arena used for the allocation.
+   * @param allocator the segment allocator used for the allocation.
    * @param size the number of elements
    * @return a new memory segment able to contain size element.
    * @throws IllegalArgumentException – if size &lt; 0
    */
-  MemorySegment newArray(Arena arena, long size);
+  MemorySegment newArray(SegmentAllocator allocator, long size);
 
   /**
    * Gets the value from the segment and creates the corresponding record.

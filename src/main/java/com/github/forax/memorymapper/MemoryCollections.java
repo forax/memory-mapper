@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
+import java.lang.foreign.SegmentAllocator;
 import java.lang.foreign.StructLayout;
 import java.lang.foreign.ValueLayout;
 import java.lang.invoke.MethodHandle;
@@ -107,7 +108,7 @@ public final class MemoryCollections {
     @Override
     protected MethodHandle computeValue(Class<?> type) {
       var memoryAccess = memoryAccess(type, true);
-      return specialize(LIST_TEMPLATE, methodType(List.class), true, memoryAccess);
+      return specialize(LIST_TEMPLATE, methodType(List.class, SegmentAllocator.class), true, memoryAccess);
     }
   };
 
@@ -127,22 +128,24 @@ public final class MemoryCollections {
     }
 
     @SuppressWarnings("unused") // called by reflection
-    static <T> List<T> create() {
-      return new SpecializedList<>();
+    static <T> List<T> create(SegmentAllocator allocator) {
+      return new SpecializedList<>(allocator);
     }
 
+    private final SegmentAllocator allocator;
     private MemorySegment segment;
     private int size;
 
-    private SpecializedList() {
-      segment = ACCESS.newArray(Arena.ofAuto(), 16);
+    private SpecializedList(SegmentAllocator allocator) {
+      this.allocator = allocator;
+      segment = ACCESS.newArray(allocator, 16);
     }
 
     private void resize() {
       if (size >= Integer.MAX_VALUE) {  // FIXME
         throw new OutOfMemoryError("size bigger than Integer.MAX_VALUE");
       }
-      var segment = ACCESS.newArray(Arena.ofAuto(), (long) size << 1);
+      var segment = ACCESS.newArray(allocator, (long) size << 1);
       segment.copyFrom(this.segment);
       this.segment = segment;
     }
@@ -272,7 +275,7 @@ public final class MemoryCollections {
           var valueMemoryAccess = memoryAccess(valueType, false);
           var structLayout = structLayout(keyMemoryAccess, valueMemoryAccess);
           var classData = new MapClassData(structLayout, keyMemoryAccess, valueMemoryAccess);
-          return specialize(MAP_TEMPLATE, methodType(Map.class), true, classData);
+          return specialize(MAP_TEMPLATE, methodType(Map.class, SegmentAllocator.class), true, classData);
         }
       };
     }
@@ -323,12 +326,15 @@ public final class MemoryCollections {
     }
 
     @SuppressWarnings("unused")  // called by reflection
-    static <K,V> Map<K,V> create() {
-      return new SpecializedMap<>();
+    static <K,V> Map<K,V> create(SegmentAllocator allocator) {
+      return new SpecializedMap<>(allocator);
     }
 
-    public SpecializedMap() {
-      this.segment = Arena.ofAuto().allocate(STRUCT_LAYOUT, 16);
+    private final SegmentAllocator allocator;
+
+    public SpecializedMap(SegmentAllocator allocator) {
+      this.allocator = allocator;
+      this.segment = allocator.allocate(STRUCT_LAYOUT, 16);
     }
 
     private static Object getKeyAt(MemorySegment segment, long index) {
@@ -405,7 +411,7 @@ public final class MemoryCollections {
       var segment = this.segment;
       var capacity = (int) (segment.byteSize() / BYTE_SIZE);
       var newCapacity = capacity << 1;
-      var newSegment = Arena.ofAuto().allocate(STRUCT_LAYOUT, newCapacity);
+      var newSegment = allocator.allocate(STRUCT_LAYOUT, newCapacity);
       for(var offset = 0L; offset < segment.byteSize(); offset += BYTE_SIZE) {
         var hashValue = (int) HASH_VH.get(segment, offset);
         if ((hashValue & 0x8000_0000) != 0) {  // != EMPTY and != TOMBSTONE
@@ -664,24 +670,41 @@ public final class MemoryCollections {
     throw (X) throwable;
   }
 
-  @SuppressWarnings("unchecked")
+  private static SegmentAllocator defaultAllocator() {
+    return (byteSize, byteAlignment) -> Arena.ofAuto().allocate(byteSize, byteAlignment);
+  }
+
   public static <T> List<T> newSpecializedList(Class<T> type) {
+    requireNonNull(type);
+    return newSpecializedList(defaultAllocator(), type);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <T> List<T> newSpecializedList(SegmentAllocator allocator, Class<T> type) {
+    requireNonNull(allocator);
     requireNonNull(type);
     var constructor = LIST_FACTORY.get(type);
     try {
-      return (List<T>)(List<?>) constructor.invokeExact();
+      return (List<T>)(List<?>) constructor.invokeExact(allocator);
     } catch (Throwable e) {
       throw rethrow(e);
     }
   }
 
-  @SuppressWarnings("unchecked")
   public static <K,V> Map<K, V> newSpecializedMap(Class<K> keyType, Class<V> valueType) {
+    requireNonNull(keyType);
+    requireNonNull(valueType);
+    return newSpecializedMap(defaultAllocator(), keyType, valueType);
+  }
+
+  @SuppressWarnings("unchecked")
+  public static <K,V> Map<K, V> newSpecializedMap(SegmentAllocator allocator, Class<K> keyType, Class<V> valueType) {
+    requireNonNull(allocator);
     requireNonNull(keyType);
     requireNonNull(valueType);
     var constructor = MAP_FACTORY.get(keyType).get(valueType);
     try {
-      return (Map<K,V>)(Map<?,?>) constructor.invokeExact();
+      return (Map<K,V>)(Map<?,?>) constructor.invokeExact(allocator);
     } catch (Throwable e) {
       throw rethrow(e);
     }
