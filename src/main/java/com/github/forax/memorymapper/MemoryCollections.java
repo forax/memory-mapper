@@ -108,9 +108,19 @@ public final class MemoryCollections {
     @Override
     protected MethodHandle computeValue(Class<?> type) {
       var memoryAccess = memoryAccess(type, true);
-      return specialize(LIST_TEMPLATE, methodType(List.class, SegmentAllocator.class), true, memoryAccess);
+      return specialize(LIST_TEMPLATE, methodType(List.class, SegmentAllocator.class, int.class), true, memoryAccess);
     }
   };
+
+  private static int defaultPowerOfTwo(int presize) {
+    if (presize < 2) {  // minimum size (can not be 0 or 1)
+      return 2;
+    }
+    if ((presize & (presize - 1)) == presize) {  // power of two
+      return presize;
+    }
+    return Integer.highestOneBit(presize) << 1;
+  }
 
   private static final class SpecializedList<E> extends AbstractList<E> implements RandomAccess {
     private static final MemoryAccess<?> ACCESS;
@@ -128,17 +138,17 @@ public final class MemoryCollections {
     }
 
     @SuppressWarnings("unused") // called by reflection
-    static <T> List<T> create(SegmentAllocator allocator) {
-      return new SpecializedList<>(allocator);
+    static <T> List<T> create(SegmentAllocator allocator, int presize) {
+      return new SpecializedList<>(allocator, presize);
     }
 
     private final SegmentAllocator allocator;
     private MemorySegment segment;
     private int size;
 
-    private SpecializedList(SegmentAllocator allocator) {
+    private SpecializedList(SegmentAllocator allocator, int presizze) {
       this.allocator = allocator;
-      segment = ACCESS.newArray(allocator, 16);
+      segment = ACCESS.newArray(allocator, defaultPowerOfTwo(presizze));
     }
 
     private void resize() {
@@ -275,7 +285,7 @@ public final class MemoryCollections {
           var valueMemoryAccess = memoryAccess(valueType, false);
           var structLayout = structLayout(keyMemoryAccess, valueMemoryAccess);
           var classData = new MapClassData(structLayout, keyMemoryAccess, valueMemoryAccess);
-          return specialize(MAP_TEMPLATE, methodType(Map.class, SegmentAllocator.class), true, classData);
+          return specialize(MAP_TEMPLATE, methodType(Map.class, SegmentAllocator.class, int.class), true, classData);
         }
       };
     }
@@ -326,15 +336,15 @@ public final class MemoryCollections {
     }
 
     @SuppressWarnings("unused")  // called by reflection
-    static <K,V> Map<K,V> create(SegmentAllocator allocator) {
-      return new SpecializedMap<>(allocator);
+    static <K,V> Map<K,V> create(SegmentAllocator allocator, int presize) {
+      return new SpecializedMap<>(allocator, presize);
     }
 
     private final SegmentAllocator allocator;
 
-    public SpecializedMap(SegmentAllocator allocator) {
+    public SpecializedMap(SegmentAllocator allocator, int presize) {
       this.allocator = allocator;
-      this.segment = allocator.allocate(STRUCT_LAYOUT, 16);
+      this.segment = allocator.allocate(STRUCT_LAYOUT, defaultPowerOfTwo(presize));
     }
 
     private static Object getKeyAt(MemorySegment segment, long index) {
@@ -676,16 +686,27 @@ public final class MemoryCollections {
 
   public static <T> List<T> newSpecializedList(Class<T> type) {
     requireNonNull(type);
-    return newSpecializedList(defaultAllocator(), type);
+    return newSpecializedList(defaultAllocator(), type, 16);
+  }
+
+  public static <T> List<T> newSpecializedList(Class<T> type, int presize) {
+    requireNonNull(type);
+    if (presize < 0) {
+      throw new IllegalArgumentException("presize < 0");
+    }
+    return newSpecializedList(defaultAllocator(), type, presize);
   }
 
   @SuppressWarnings("unchecked")
-  public static <T> List<T> newSpecializedList(SegmentAllocator allocator, Class<T> type) {
+  public static <T> List<T> newSpecializedList(SegmentAllocator allocator, Class<T> type, int presize) {
     requireNonNull(allocator);
     requireNonNull(type);
+    if (presize < 0) {
+      throw new IllegalArgumentException("presize < 0");
+    }
     var constructor = LIST_FACTORY.get(type);
     try {
-      return (List<T>)(List<?>) constructor.invokeExact(allocator);
+      return (List<T>)(List<?>) constructor.invokeExact(allocator, presize);
     } catch (Throwable e) {
       throw rethrow(e);
     }
@@ -694,17 +715,29 @@ public final class MemoryCollections {
   public static <K,V> Map<K, V> newSpecializedMap(Class<K> keyType, Class<V> valueType) {
     requireNonNull(keyType);
     requireNonNull(valueType);
-    return newSpecializedMap(defaultAllocator(), keyType, valueType);
+    return newSpecializedMap(defaultAllocator(), keyType, valueType, 16);
+  }
+
+  public static <K,V> Map<K, V> newSpecializedMap(Class<K> keyType, Class<V> valueType, int presize) {
+    requireNonNull(keyType);
+    requireNonNull(valueType);
+    if (presize < 0) {
+      throw new IllegalArgumentException("presize < 0");
+    }
+    return newSpecializedMap(defaultAllocator(), keyType, valueType, presize);
   }
 
   @SuppressWarnings("unchecked")
-  public static <K,V> Map<K, V> newSpecializedMap(SegmentAllocator allocator, Class<K> keyType, Class<V> valueType) {
+  public static <K,V> Map<K, V> newSpecializedMap(SegmentAllocator allocator, Class<K> keyType, Class<V> valueType, int presize) {
     requireNonNull(allocator);
     requireNonNull(keyType);
     requireNonNull(valueType);
+    if (presize < 0) {
+      throw new IllegalArgumentException("presize < 0");
+    }
     var constructor = MAP_FACTORY.get(keyType).get(valueType);
     try {
-      return (Map<K,V>)(Map<?,?>) constructor.invokeExact(allocator);
+      return (Map<K,V>)(Map<?,?>) constructor.invokeExact(allocator, presize);
     } catch (Throwable e) {
       throw rethrow(e);
     }

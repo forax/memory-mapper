@@ -74,18 +74,18 @@ public class MemoryCollectionsTest {
 
     @Test
     public void newSpecializedListPrimitiveEquals() {
-      var list1 = MemoryCollections.newSpecializedList(int.class);
+      var list1 = MemoryCollections.newSpecializedList(int.class, 1_000);
       range(0, 1_000).forEach(list1::add);
-      var list2 = MemoryCollections.newSpecializedList(int.class);
+      var list2 = MemoryCollections.newSpecializedList(int.class, 1_000);
       range(0, 1_000).forEach(list2::add);
       assertEquals(list1, list2);
     }
 
     @Test
     public void newSpecializedListPrimitiveNotEquals() {
-      var list1 = MemoryCollections.newSpecializedList(int.class);
+      var list1 = MemoryCollections.newSpecializedList(int.class, 1_000);
       range(0, 1_000).forEach(i -> list1.add(i % 100));
-      var list2 = MemoryCollections.newSpecializedList(int.class);
+      var list2 = MemoryCollections.newSpecializedList(int.class, 1_000);
       range(0, 1_000).forEach(list2::add);
       assertNotEquals(list1, list2);
     }
@@ -155,7 +155,7 @@ public class MemoryCollectionsTest {
 
     @Test
     public void newSpecializedMapReHashALot() {
-      var map = MemoryCollections.newSpecializedMap(int.class, int.class);
+      var map = MemoryCollections.newSpecializedMap(int.class, int.class, 2);
       range(0, 100_000).forEach(i -> map.put(i, i));
 
       assertAll(
@@ -173,6 +173,15 @@ public class MemoryCollectionsTest {
         map.put(i, new Pair(i, i));
       }
       assertEquals(100, map.size());
+    }
+
+    @Test
+    public void newSpecializedMapPresized() {
+      var map = MemoryCollections.newSpecializedMap(int.class, int.class, 4);
+      for(var i = 0; i < 2; i++) {
+        map.put(i, i);
+      }
+      assertEquals(2, map.size());
     }
   }
 
@@ -196,7 +205,7 @@ public class MemoryCollectionsTest {
           var allocator = stackAllocator(segment);
 
           record Point(int x, int y) {}
-          var list = MemoryCollections.newSpecializedList(allocator, Point.class);
+          var list = MemoryCollections.newSpecializedList(allocator, Point.class, 16);
           for(var i = 0; i < 100; i++) {
             list.add(new Point(i, i));
           }
@@ -214,7 +223,7 @@ public class MemoryCollectionsTest {
           var allocator = stackAllocator(segment);
 
           record Point(int x, int y) {}
-          var map = MemoryCollections.newSpecializedMap(allocator, int.class, Point.class);
+          var map = MemoryCollections.newSpecializedMap(allocator, int.class, Point.class, 16);
           for(var i = 0; i < 100; i++) {
             map.put(i, new Point(i, i));
           }
