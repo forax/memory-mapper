@@ -10,16 +10,20 @@ This library provides
 
 ## Using a specialized list/map
 
-Specialized list/map are implementations of respectively `java.util.List` and `java.util.Map`
-that uses off-heap memory (memory not managed by the GC) to store their elements/keys/values,
-avoiding using pointers/references to be more compact in memory and be more .
+Specialized list/map implementations of respectively `java.util.List` and `java.util.Map`
+that uses off-heap memory (memory not managed by the GC) to store their elements/keys/values
+in a data structure more compact and more sympathetic to actual CPUs (avoiding using pointers/references).
 
 ```java
 record Pair(int fiest, int second) {}
   ...
+  List<Integer> list = MemoryCollections.newSpecializedList(int.class);
+  list.add(2);
+  list.add(42);
+  
   Map<Integer, Pair> map = MemoryCollections.newSpecializedMap(int.class, Pair.class);
-  for(int i = 0; i < 100; i++) {
-    map.put(i, new Pair(i, i));
+  for(int value : list) {
+    map.put(value, new Pair(value, value));
   }
 ```
 
