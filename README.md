@@ -2,28 +2,42 @@
 A simple library on top of the Java  Foreign Function Memory API (java.lang.foreign)
 that simplifies the mapping of Java records from/to off heap memory
 
-The class `MemoryAccess` provides several features helping to map a memory segment to record instances or vice-versa.
-- Create a memory access with auto-padding of the layout like in C `reflect(lookup, recordClass)`
-- Methods that:
-  - allocate a segment `newValue(arena)` and `newValue(arena, record)`
-  - allocate a segment seen as an array `newArray(arena, size)`
-  - get/ set a segment from/ to a record `get(memorySegment)` and `set(memorySegment, record)`
-  - get/ set a segment seen as an array at an index from/ to a record `getAtIndex(memorySegment, index)` and
-    `setAtIndex(memorySegment, index, record)`
-  - create `VarHandle`s from a string path `MemoryAccess.varHandle(memoryAccess, path)`
+This library provides
+- a high level API through the class `MemoryCollections` that provides `List` and `Map`implementation
+  specialized for primitive types and record that are stored as value (instead of as reference).
+- a low level API through the class `MemoryAccess` that map a memory segment to a primitive type or
+  a record type.
 
+## Using a specialized list/map
 
-### Creating a `MemoryAccess` instance?
+Specialized list/map are implementations of respectively `java.util.List` and `java.util.Map`
+that uses off-heap memory (memory not managed by the GC) to store their elements/keys/values,
+avoiding using pointers/references to be more compact in memory and be more .
 
-The idea is to declare a record for a struct and create a `MemoryAccess` instance.
-A memory layout is derived from the record description with by default all the field correctly aligned,
+```java
+record Pair(int fiest, int second) {}
+  ...
+  Map<Integer, Pair> map = MemoryCollections.newSpecializedMap(int.class, Pair.class);
+  for(int i = 0; i < 100; i++) {
+    map.put(i, new Pair(i, i));
+  }
+```
+
+## Creating a `MemoryAccess` instance?
+
+A `MemoryAccess` object can be created either on a primitive type or on a record (to define a struct)
+and helps to access off-heap memory in a simple way.
+A memory layout is derived from the description, with by default, all the field correctly aligned and
 using the byte order of the CPU.
 ```java
 record Point(int x, int y) {}
 
+private static final MemoryAccess<Point> INT =
+    MemoryAccess.from(int.class);
 private static final MemoryAccess<Point> POINT =
     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
   ...
+  System.out.println(MemoryAccess.layout(INT));
   System.out.println(MemoryAccess.layout(POINT));
 ```
 The record can be decorated with annotations to specify the layout in memory.
@@ -43,13 +57,14 @@ The annotation `LayoutElement` describes the layout of each field.
 The annotation `Layout` specifies the layout of the data structure.
 
 
-### Allocating an instance and accessing its fields using a record
+### Allocating an instance and accessing its fields using a record/boxed value
 
-The method `newValue(arena)` allocates a memory segment of the size of the layout.
-The method `newValue(arena, record)` initialize a memory segment and initialize all the fields from a record instance.
+The method `newValue(allocator)` allocates a memory segment of the size of the layout.
+The method `newValue(allocator, value)` initialize a memory segment with the provided value
+(a record or a boxed primitive value).
 
-The methods `get(memorySegment)` and `set(memorySegment, record)` respectively returns a record from
-a struct and set the values of a struct from a record. 
+The methods `get(memorySegment)` and `set(memorySegment, value)` respectively returns a record/boxed value
+from a memory segment or set the value from a record/boxed value. 
 
 ```java
 private static final MemoryAccess<Point> POINT =
@@ -62,11 +77,11 @@ private static final MemoryAccess<Point> POINT =
   }
 ```
 
-### Allocating an array and accessing its elements using records
+### Allocating an array and accessing its elements using records/boxed values
 
-The method `newArray(arena, size)` allocate an array with a size.
-The methods `getAtIndex(memorySegment, index)` and `setAtIndex(memorySegment, index, record)`respectively
-get a record from the array of structs using an index or set the struct of the array with an index.
+The method `newArray(allocator, size)` allocate an array with a size.
+The methods `getAtIndex(memorySegment, index)` and `setAtIndex(memorySegment, index, value)`respectively
+get a value (a record or a boxed value) from the array using an index or set the element of an array with an index.
 
 ```java
 private static final MemoryAccess<Point> POINT =
@@ -79,7 +94,7 @@ private static final MemoryAccess<Point> POINT =
   }
 ```
 
-### More high level methods
+### More methods
 
 The `MemoryAccess` API also provides the methods `list(memorySegment)` and `stream(memorySegment)` that see
 an array respectively as a `java.util.List` (limited at 2G elements) and a `java.util.stream.Stream`
@@ -93,8 +108,7 @@ private static final MemoryAccess<Point> POINT =
   var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
 ```
 
-### Convenient way to create a VarHandle for an element field
-
+#### Convenient way to create a VarHandle for an element field
 
 The method `MemoryAccess.varHandle(memoryAccess, path)` returns a constant VarHandle allowing to get and set the values of the fields
 from a string path.
@@ -116,9 +130,7 @@ private static final VarHandle POINT_Y = varHandle(POINT, ".y");
   }
 ```
 
-
-### Convenient way to create a VarHandle for an element field of an array
-
+#### Convenient way to create a VarHandle for an element field of an array
 
 The method `MemoryAccess.varHandle(memoryAccess, path)` also allows to access to the elements of an array
 of struct using the prefix '[]'.
