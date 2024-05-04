@@ -650,8 +650,16 @@ public final class MemoryAccessFactory {
     return new MemoryAccessImpl<>(layout, structGetterMH, structSetterMH);
   }
 
+  /**
+   * Creates a memory access object using a primitive type as definition.
+   *
+   * @param primitiveType a primitive type.
+   * @return a memory access that can read and write a memory segment as a primitive.
+   * @throws IllegalArgumentException if the type is not a primitive type.
+   * @param <T> the type of the primitive type.
+   */
   @SuppressWarnings("unchecked")
-  public static <T> MemoryAccess<T> fromPrimitive(Class<T> primitiveType) {
+  static <T> MemoryAccess<T> fromPrimitive(Class<T> primitiveType) {
     requireNonNull(primitiveType);
     if (!primitiveType.isPrimitive() || primitiveType == void.class) {
       throw new IllegalArgumentException(primitiveType + " is not a primitive type");

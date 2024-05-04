@@ -177,7 +177,7 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
    * @return a new memory segment of the size of the layout
    *         initialized with the values of the element.
    *
-   * @see #newValue(Arena)
+   * @see #newValue(SegmentAllocator)
    * @see #set(MemorySegment, Object)
    */
   MemorySegment newValue(SegmentAllocator allocator, T element);
@@ -275,6 +275,14 @@ public sealed interface MemoryAccess<T> permits MemoryAccessFactory.MemoryAccess
     return MemoryAccessFactory.create(lookup, recordType, MemoryAccessFactory::defaultLayout);
   }
 
+  /**
+   * Creates a memory access object using a primitive type as definition.
+   *
+   * @param primitiveType a primitive type.
+   * @return a memory access that can read and write a memory segment as a primitive.
+   * @throws IllegalArgumentException if the type is not a primitive type.
+   * @param <T> the type of the primitive type.
+   */
   static <T> MemoryAccess<T> fromPrimitive(Class<T> primitiveType) {
     requireNonNull(primitiveType, "primitiveType is null");
     return MemoryAccessFactory.fromPrimitive(primitiveType);

@@ -30,6 +30,13 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Objects.checkIndex;
 import static java.util.Objects.requireNonNull;
 
+/**
+ * A class providing a {@link List} and a {@link Map} implementations that stores the elements
+ * (resp. the mapping) as value instead of as reference.
+ *
+ * @see #newSpecializedList(Class)
+ * @see #newSpecializedMap(Class, Class)
+ */
 public final class MemoryCollections {
   private MemoryCollections() {
     throw new AssertionError();
@@ -684,11 +691,30 @@ public final class MemoryCollections {
     return (byteSize, byteAlignment) -> Arena.ofAuto().allocate(byteSize, byteAlignment);
   }
 
+  /**
+   * Create a List from a primitive type or a record, unlike a traditional collection,
+   * each element is stored as value and not as reference.
+   *
+   * @param type the type of the elements.
+   * @return a new list.
+   * @param <T> type of the elements.
+   *
+   * @see #newSpecializedList(SegmentAllocator, Class, int)
+   */
   public static <T> List<T> newSpecializedList(Class<T> type) {
     requireNonNull(type);
     return newSpecializedList(defaultAllocator(), type, 16);
   }
 
+  /**
+   * Create a List from a primitive type or a record, unlike a traditional collection,
+   * each element is stored as value and not as reference.
+   *
+   * @param type the type of the elements.
+   * @param presize the number of elements when the list created.
+   * @return a new list.
+   * @param <T> type of the elements.
+   */
   public static <T> List<T> newSpecializedList(Class<T> type, int presize) {
     requireNonNull(type);
     if (presize < 0) {
@@ -697,6 +723,16 @@ public final class MemoryCollections {
     return newSpecializedList(defaultAllocator(), type, presize);
   }
 
+  /**
+   * Create a List from a primitive type or a record, unlike a traditional collection,
+   * each element is stored as value and not as reference.
+   *
+   * @param allocator the allocator used to allocate the memory segment storing the elements.
+   * @param type the type of the elements.
+   * @param presize the number of elements when the list created.
+   * @return a new list.
+   * @param <T> type of the elements.
+   */
   @SuppressWarnings("unchecked")
   public static <T> List<T> newSpecializedList(SegmentAllocator allocator, Class<T> type, int presize) {
     requireNonNull(allocator);
@@ -712,12 +748,35 @@ public final class MemoryCollections {
     }
   }
 
+  /**
+   * Create a Map using primitive types or records as key and value, unlike a traditional collection,
+   * each mapping (pair key/value) is stored as value and not as reference.
+   *
+   * @param keyType the type of the keys.
+   * @param valueType the type of the values.
+   * @return a new map.
+   * @param <K> type of the keys.
+   * @param <V> type of the values.
+   *
+   * @see #newSpecializedMap(SegmentAllocator, Class, Class, int)
+   */
   public static <K,V> Map<K, V> newSpecializedMap(Class<K> keyType, Class<V> valueType) {
     requireNonNull(keyType);
     requireNonNull(valueType);
     return newSpecializedMap(defaultAllocator(), keyType, valueType, 16);
   }
 
+  /**
+   * Create a Map using primitive types or records as key and value, unlike a traditional collection,
+   * each mapping (pair key/value) is stored as value and not as reference.
+   *
+   * @param keyType the type of the keys.
+   * @param valueType the type of the values.
+   * @param presize the number of mappings when the map created.
+   * @return a new map.
+   * @param <K> type of the keys.
+   * @param <V> type of the values.
+   */
   public static <K,V> Map<K, V> newSpecializedMap(Class<K> keyType, Class<V> valueType, int presize) {
     requireNonNull(keyType);
     requireNonNull(valueType);
@@ -727,6 +786,18 @@ public final class MemoryCollections {
     return newSpecializedMap(defaultAllocator(), keyType, valueType, presize);
   }
 
+  /**
+   * Create a Map using primitive types or records as key and value, unlike a traditional collection,
+   * each mapping (pair key/value) is stored as value and not as reference.
+   *
+   * @param allocator the allocator used to allocate the memory segment storing the mappings.
+   * @param keyType the type of the keys.
+   * @param valueType the type of the values.
+   * @param presize the number of mappings when the map created.
+   * @return a new map.
+   * @param <K> type of the keys.
+   * @param <V> type of the values.
+   */
   @SuppressWarnings("unchecked")
   public static <K,V> Map<K, V> newSpecializedMap(SegmentAllocator allocator, Class<K> keyType, Class<V> valueType, int presize) {
     requireNonNull(allocator);
