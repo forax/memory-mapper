@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.lang.foreign.Arena;
+import java.lang.foreign.MemorySegment;
 import java.lang.foreign.SegmentAllocator;
 import java.util.List;
 import java.util.Map;
@@ -163,23 +164,61 @@ public class MemoryCollectionsTest {
           () -> range(0, 100_000).forEach(i -> assertTrue(map.containsKey(i), "" + i))
       );
     }
+
+    @Test
+    public void newSpecializedMapOfInt() {
+      record Pair(int fiest, int second) {}
+      var map = MemoryCollections.newSpecializedMap(int.class, Pair.class);
+      for(var i = 0; i < 100; i++) {
+        map.put(i, new Pair(i, i));
+      }
+      assertEquals(100, map.size());
+    }
   }
 
   @Nested
   public class Allocator {
-    @Test
-    public void stackAllocation() {
-      try(var arena = Arena.ofConfined()) {
-        var segment = arena.allocate(1_024);
-        var allocator = SegmentAllocator.prefixAllocator(segment);
+    private static SegmentAllocator stackAllocator(MemorySegment segment) {
+      var slicingAllocator = SegmentAllocator.slicingAllocator(segment);
+      return (byteSize, byteAlignment) -> {
+        var slice = slicingAllocator.allocate(byteSize, byteAlignment);
+        slice.fill((byte) 0);
+        return slice;
+      };
+    }
 
-        record Point(int x, int y) {}
-        for(var i = 0; i < 10_000; i++) {
+    @Test
+    public void stackAllocationList() {
+      try(var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(2_048);
+
+        for(var repeat = 0; repeat < 10_000; repeat++) {
+          var allocator = stackAllocator(segment);
+
+          record Point(int x, int y) {}
           var list = MemoryCollections.newSpecializedList(allocator, Point.class);
-          for(var v = 0; v < 100; v++) {
-            list.add(new Point(v, v));
+          for(var i = 0; i < 100; i++) {
+            list.add(new Point(i, i));
           }
           assertEquals(100, list.size());
+        }
+      }
+    }
+
+    @Test
+    public void stackAllocationMap() {
+      try(var arena = Arena.ofConfined()) {
+        var segment = arena.allocate(8_192);
+
+        for(var repeat = 0; repeat < 10_00; repeat++) {
+          var allocator = stackAllocator(segment);
+
+          record Point(int x, int y) {}
+          var map = MemoryCollections.newSpecializedMap(allocator, int.class, Point.class);
+          for(var i = 0; i < 100; i++) {
+            map.put(i, new Point(i, i));
+          }
+          assertEquals(100, map.size());
         }
       }
     }
