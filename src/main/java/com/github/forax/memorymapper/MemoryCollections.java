@@ -688,7 +688,33 @@ public final class MemoryCollections {
   }
 
   private static SegmentAllocator defaultAllocator() {
-    return (byteSize, byteAlignment) -> Arena.ofAuto().allocate(byteSize, byteAlignment);
+    // do not use Arena.ofAuto() if possible, here, the implementation is too slow
+    return (byteSize, byteAlignment) -> {
+      if (byteAlignment == 1) {
+        if (byteSize < Integer.MAX_VALUE - 20L) {
+          return MemorySegment.ofArray(new byte[(int) byteSize]);
+        }
+      } else if (byteAlignment == 2) {
+        if (byteSize < Integer.MAX_VALUE * 2L - 20L) {
+          var size = byteSize >> 1 + (byteSize & 1);
+          return MemorySegment.ofArray(new short[(int) size])
+              .asSlice(0L, byteSize, byteAlignment);
+        }
+      } else if (byteAlignment == 4) {
+        if (byteSize < Integer.MAX_VALUE * 4L - 20L) {
+          var size = byteSize >> 2 + (byteSize & 2);  // should be (byteSize & 2) != 0
+          return MemorySegment.ofArray(new int[(int) size])
+              .asSlice(0L, byteSize, byteAlignment);
+        }
+      } else if (byteAlignment == 8) {
+        if (byteSize < Integer.MAX_VALUE * 8L - 20L) {
+          var size = byteSize >> 3 + (byteSize & 3);  // should be (byteSize & 3) != 0
+          return MemorySegment.ofArray(new long[(int) size])
+              .asSlice(0L, byteSize, byteAlignment);
+        }
+      }
+      return Arena.ofAuto().allocate(byteSize, byteAlignment);
+    };
   }
 
   /**
