@@ -1,5 +1,6 @@
 package com.github.forax.memorymapper.bench;
 
+/*
 import com.github.forax.memorymapper.MemoryAccess;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -17,8 +18,6 @@ import java.lang.foreign.MemorySegment;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.TimeUnit;
 
-import static java.lang.invoke.MethodHandles.lookup;
-/*
 // $JAVA_HOME/bin/java -jar target/benchmarks.jar -prof dtraceasm
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
