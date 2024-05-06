@@ -688,7 +688,7 @@ public final class MemoryCollections {
   }
 
   private static SegmentAllocator defaultAllocator() {
-    // do not use Arena.ofAuto() if possible, here, the implementation is too slow
+    // do not use Arena.ofAuto() if possible, the implementation is too slow
     return (byteSize, byteAlignment) -> {
       if (byteAlignment == 1) {
         if (byteSize < Integer.MAX_VALUE - 20L) {

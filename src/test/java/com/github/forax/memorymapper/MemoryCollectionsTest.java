@@ -59,11 +59,83 @@ public class MemoryCollectionsTest {
 
     @Test
     public void newSpecializedListPrimitiveEmpty() {
-      record Point(int x, int y) {}
-
       var list = MemoryCollections.newSpecializedList(int.class);
       assertEquals(List.of(), list);
     }
+
+    @Test
+    public void newSpecializedListPrimitiveBoolean() {
+      var list = MemoryCollections.newSpecializedList(boolean.class, 777);
+      range(0, 2_000).forEach(i -> list.add(i % 2 == 0));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), i % 2 == 0, "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveByte() {
+      var list = MemoryCollections.newSpecializedList(byte.class, 777);
+      range(0, 2_000).forEach(i -> list.add((byte) (i % 2)));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), (byte) (i % 2), "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveShort() {
+      var list = MemoryCollections.newSpecializedList(short.class, 777);
+      range(0, 2_000).forEach(i -> list.add((short) (i % 2)));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), (short) (i % 2), "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveChar() {
+      var list = MemoryCollections.newSpecializedList(char.class, 777);
+      range(0, 2_000).forEach(i -> list.add((char) (i % 2)));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), (char) (i % 2), "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveInt() {
+      var list = MemoryCollections.newSpecializedList(int.class, 777);
+      range(0, 2_000).forEach(i -> list.add(i % 2));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), i % 2, "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveLong() {
+      var list = MemoryCollections.newSpecializedList(long.class, 777);
+      range(0, 2_000).forEach(i -> list.add((long) (i % 2)));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), i % 2, "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveFloat() {
+      var list = MemoryCollections.newSpecializedList(float.class, 777);
+      range(0, 2_000).forEach(i -> list.add((float) (i % 2)));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), (float) (i % 2), "" + i);
+      }
+    }
+    @Test
+    public void newSpecializedListPrimitiveDouble() {
+      var list = MemoryCollections.newSpecializedList(double.class, 777);
+      range(0, 2_000).forEach(i -> list.add((double) (i % 2)));
+
+      for(var i = 0; i < list.size(); i++) {
+        assertEquals(list.get(i), i % 2, "" + i);
+      }
+    }
+
 
     @Test
     public void newSpecializedListPrimitiveWithOneElement() {
