@@ -159,10 +159,13 @@ public final class MemoryCollections {
     }
 
     private void resize() {
-      if (size >= Integer.MAX_VALUE) {  // FIXME
-        throw new OutOfMemoryError("size bigger than Integer.MAX_VALUE");
+      int length;
+      try {
+        length = Math.multiplyExact(size, 2);
+      } catch (ArithmeticException _) {
+        throw new OutOfMemoryError("capacity is bigger than Integer.MAX_VALUE");
       }
-      var segment = ACCESS.newArray(allocator, (long) size << 1);
+      var segment = ACCESS.newArray(allocator, length);
       segment.copyFrom(this.segment);
       this.segment = segment;
     }
@@ -427,7 +430,12 @@ public final class MemoryCollections {
     private void rehash() {
       var segment = this.segment;
       var capacity = (int) (segment.byteSize() / BYTE_SIZE);
-      var newCapacity = capacity << 1;
+      int newCapacity;
+      try {
+        newCapacity = Math.multiplyExact(capacity, 2);
+      } catch (ArithmeticException _) {
+        throw new OutOfMemoryError("capacity is bigger than Integer.MAX_VALUE");
+      }
       var newSegment = allocator.allocate(STRUCT_LAYOUT, newCapacity);
       for(var offset = 0L; offset < segment.byteSize(); offset += BYTE_SIZE) {
         var hashValue = (int) HASH_VH.get(segment, offset);
@@ -713,6 +721,7 @@ public final class MemoryCollections {
               .asSlice(0L, byteSize, byteAlignment);
         }
       }
+
       return Arena.ofAuto().allocate(byteSize, byteAlignment);
     };
   }

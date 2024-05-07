@@ -2,6 +2,8 @@ package com.github.forax.memorymapper;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemorySegment;
@@ -162,6 +164,15 @@ public class MemoryCollectionsTest {
       assertNotEquals(list1, list2);
     }
 
+    @Test @EnabledOnOs(OS.LINUX)
+    public void capacityOutOfBounds() {
+      var list = MemoryCollections.newSpecializedList(byte.class);
+      assertThrows(OutOfMemoryError.class, () -> {
+        for (var i = 0L; i < 3_000_000_000L; i++) {
+          list.add((byte) 42);
+        }
+      });
+    }
   }
 
   @Nested
@@ -254,6 +265,16 @@ public class MemoryCollectionsTest {
         map.put(i, i);
       }
       assertEquals(2, map.size());
+    }
+
+    @Test  @EnabledOnOs(OS.LINUX)
+    public void capacityOutOfBounds() {
+      var map = MemoryCollections.newSpecializedMap(int.class, byte.class);
+      assertThrows(OutOfMemoryError.class, () -> {
+        for (var i = 0; i < Integer.MAX_VALUE; i++) {
+          map.put(Integer.MIN_VALUE + i, (byte) 42);
+        }
+      });
     }
   }
 
