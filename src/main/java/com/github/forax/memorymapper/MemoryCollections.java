@@ -153,9 +153,9 @@ public final class MemoryCollections {
     private MemorySegment segment;
     private int size;
 
-    private SpecializedList(SegmentAllocator allocator, int presizze) {
+    private SpecializedList(SegmentAllocator allocator, int presize) {
       this.allocator = allocator;
-      segment = ACCESS.newArray(allocator, defaultPowerOfTwo(presizze));
+      segment = ACCESS.newArray(allocator, defaultPowerOfTwo(presize));
     }
 
     private void resize() {
