@@ -177,7 +177,7 @@ then you can add the dependency to the library
 <dependency>
     <groupId>com.github.forax.memorymapper</groupId>
     <artifactId>memory-mapper</artifactId>
-    <version>1.0</version>
+    <version>2.0</version>
 </dependency>
 ```
 
