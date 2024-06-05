@@ -8,6 +8,8 @@ This library provides
 - a low level API through the class `MemoryAccess` that map a memory segment to a primitive type or
   a record type.
 
+[javadoc](https://javadoc.jitpack.io/com/github/forax/memory-mapper/master/javadoc/com/github/forax/memorymapper/package-summary.html)
+
 ## Using a specialized list/map
 
 Specialized list/map implementations of respectively `java.util.List` and `java.util.Map`
