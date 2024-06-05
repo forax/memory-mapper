@@ -1,6 +1,5 @@
-package com.github.forax.memorymapper.bench;
+/*package com.github.forax.memorymapper.bench;
 
-/*
 import com.github.forax.memorymapper.MemoryAccess;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -15,8 +14,17 @@ import org.openjdk.jmh.annotations.Warmup;
 import java.lang.foreign.Arena;
 import java.lang.foreign.MemoryLayout;
 import java.lang.foreign.MemorySegment;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.concurrent.TimeUnit;
+
+// Benchmark                                      Mode  Cnt    Score   Error  Units
+// MemoryAccessBenchmarks.value_record_access     avgt    5    1.361 ± 0.049  ns/op
+// MemoryAccessBenchmarks.value_varHandle         avgt    5    1.256 ± 0.014  ns/op
+// MemoryAccessBenchmarks.value_varHandle_access  avgt    5    1.253 ± 0.003  ns/op
+// MemoryAccessBenchmarks.array_record_access     avgt    5  287.950 ± 0.602  ns/op
+// MemoryAccessBenchmarks.array_varHandle         avgt    5  289.291 ± 0.966  ns/op
+// MemoryAccessBenchmarks.array_varHandle_access  avgt    5  289.147 ± 0.724  ns/op
 
 // $JAVA_HOME/bin/java -jar target/benchmarks.jar -prof dtraceasm
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
@@ -28,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 public class MemoryAccessBenchmarks {
   record Point(int x, int y) {}
 
-  private static final MemoryAccess<Point> POINT_ACCESS = MemoryAccess.reflect(lookup(), Point.class);
+  private static final MemoryAccess<Point> POINT_ACCESS = MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
   private static final VarHandle POINT_ACCESS_X = MemoryAccess.varHandle(POINT_ACCESS, ".x");
   private static final VarHandle POINT_ACCESS_Y = MemoryAccess.varHandle(POINT_ACCESS, ".y");
   private static final VarHandle ARRAY_ACCESS_X = MemoryAccess.varHandle(POINT_ACCESS, "[].x");
@@ -46,19 +54,19 @@ public class MemoryAccessBenchmarks {
 
 
   @Benchmark
-  public int item_varHandle() {
+  public int value_varHandle() {
     var x = (int) POINT_X.get(pointSegment, 0L);
     var y = (int) POINT_Y.get(pointSegment, 0L);
     return x + y;
   }
   @Benchmark
-  public int item_varHandle_access() {
+  public int value_varHandle_access() {
     var x = (int) POINT_ACCESS_X.get(pointSegment, 0L);
     var y = (int) POINT_ACCESS_Y.get(pointSegment, 0L);
     return x + y;
   }
   @Benchmark
-  public int item_record_access() {
+  public int value_record_access() {
     var point = POINT_ACCESS.get(pointSegment);
     return point.x + point.y;
   }
