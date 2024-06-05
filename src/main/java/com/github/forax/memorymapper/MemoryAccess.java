@@ -104,15 +104,17 @@ import static java.util.Objects.requireNonNull;
  * private static final MemoryAccess<Point> POINT =
  *     MemoryAccess.reflect(MethodHandles.lookup(), Point.class);
  *
- *   MemorySegment s = POINT.newArray(arena.ofAuto(), 10);
- *   List<Point> l = POINT.list(segment);
- *   l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
- *   var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
+ *   try(Arena arena = Arena.ofConfined()) {
+ *     MemorySegment s = POINT.newArray(arena, 10);
+ *     List<Point> l = POINT.list(segment);
+ *     l.set(3, new Point(12, 5));   // s[3].x = 12; s[3].y = 5
+ *     var p = l.get(7);             // p.x = s[7].x; p.y = s[7].y
+ *   }
  * }
  * <p>
  * <b>Convenient way to create a VarHandle for an element field</b>
  * <p>
- * The method {@link #varHandle(MemoryAccess, String)} returns a constant VarHandle allowing to get and set the values
+ * The method {@link #varHandle(MemoryAccess, String)} returns a VarHandle allowing to get and set the values
  * of the fields from a string path.
  * <p>
  * {@snippet :
