@@ -2,7 +2,6 @@ import java.lang.foreign.MemoryLayout;
 import java.lang.invoke.VarHandle;
 
 import static java.lang.foreign.MemoryLayout.PathElement.groupElement;
-import static java.lang.foreign.MemoryLayout.structLayout;
 import static java.lang.foreign.ValueLayout.JAVA_BYTE;
 import static java.lang.foreign.ValueLayout.JAVA_INT_UNALIGNED;
 import static java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED;
@@ -13,7 +12,7 @@ import static java.lang.foreign.ValueLayout.JAVA_SHORT_UNALIGNED;
     short ext;
   }*/
 
-private static final MemoryLayout DATA_LAYOUT = structLayout(
+private static final MemoryLayout DATA_LAYOUT = MemoryLayout.structLayout(
     JAVA_BYTE.withName("kind"),
     JAVA_INT_UNALIGNED.withName("payload"),
     JAVA_SHORT_UNALIGNED.withName("ext")
