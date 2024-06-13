@@ -81,7 +81,7 @@ import static java.util.Objects.requireNonNull;
  *
  * <b>Allocating an array and accessing its elements using records</b>
  * <p>
- * The method {@link #newArray(Arena, long)} allocate an array with a size.
+ * The method {@link #newArray(SegmentAllocator, long)} allocate an array with a size.
  * The methods {@link #getAtIndex(MemorySegment, long)}` and {@link #setAtIndex(MemorySegment, long, Object)}
  * respectively get a record from the array of structs using an index or set the struct of the array with an index.
  * <p>
